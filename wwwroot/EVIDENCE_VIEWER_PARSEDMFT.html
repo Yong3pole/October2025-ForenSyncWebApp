@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFT Directory Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 10px;
+        }
+
+        .upload-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+
+        .file-input-wrapper {
+            margin: 15px 0;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #3498db;
+            border-radius: 5px;
+            background: #f8f9fa;
+        }
+
+        .controls {
+            padding: 15px 20px;
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls input, .controls select, .controls button {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .controls button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .controls button:hover {
+            background: #2980b9;
+        }
+
+        .stats {
+            padding: 10px 20px;
+            background: #34495e;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tree-container {
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .tree {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+        }
+
+        .folder, .file {
+            padding: 2px 5px;
+            margin: 1px 0;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        .folder {
+            cursor: pointer;
+            font-weight: bold;
+            color: #2980b9;
+            display: flex;
+            align-items: center;
+        }
+
+        .folder:hover {
+            background: #e3f2fd;
+        }
+
+        .file {
+            color: #7f8c8d;
+            margin-left: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .file:hover {
+            background: #f8f9fa;
+        }
+
+        .folder::before {
+            content: '📁 ';
+            margin-right: 5px;
+        }
+
+        .file::before {
+            content: '📄 ';
+            margin-right: 5px;
+        }
+
+        .collapsed::before {
+            content: '📂 ';
+        }
+
+        .children {
+            margin-left: 20px;
+            border-left: 1px dashed #bdc3c7;
+            padding-left: 10px;
+        }
+
+        .deleted {
+            color: #e74c3c !important;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .deleted::before {
+            content: '🗑️ ';
+        }
+
+        .file-size {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #95a5a6;
+            background: #ecf0f1;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
+        .file-date {
+            margin-left: 10px;
+            font-size: 11px;
+            color: #bdc3c7;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 10px;
+            background: #ffeaea;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .stats {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 MFT Directory Viewer</h1>
+            <p>Upload your MFTECmd CSV export to visualize the directory structure</p>
+        </header>
+
+        <section class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="csvFile" accept=".csv">
+            </div>
+            <small>Select your MFTECmd CSV export file</small>
+        </section>
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search files and folders...">
+            <select id="viewFilter">
+                <option value="all">All Items</option>
+                <option value="active">Active Only</option>
+                <option value="deleted">Deleted Only</option>
+            </select>
+            <button onclick="expandAll()">Expand All</button>
+            <button onclick="collapseAll()">Collapse All</button>
+            <button onclick="exportTree()">Export Tree</button>
+        </div>
+
+        <div class="stats" id="stats">
+            <span>📊 <span id="fileCount">0</span> files</span>
+            <span>📁 <span id="folderCount">0</span> folders</span>
+            <span>🗑️ <span id="deletedCount">0</span> deleted items</span>
+            <span>💾 <span id="totalSize">0 B</span> total size</span>
+        </div>
+
+        <div class="tree-container">
+            <div id="treeView" class="tree">
+                <div class="loading">Please upload an MFTECmd CSV file to begin</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MFTViewer {
+            constructor() {
+                this.entries = [];
+                this.treeData = null;
+                this.filteredTree = null;
+                this.currentSearch = '';
+                this.currentFilter = 'all';
+            }
+
+            async loadCSV(file) {
+                try {
+                    this.showLoading('Parsing MFT data...');
+                    
+                    const text = await this.readFile(file);
+                    this.entries = this.parseCSV(text);
+                    
+                    if (this.entries.length === 0) {
+                        throw new Error('No valid MFT entries found in the CSV file');
+                    }
+                    
+                    this.buildDirectoryTree();
+                    this.renderTree();
+                    this.updateStats();
+                    
+                } catch (error) {
+                    this.showError('Error loading file: ' + error.message);
+                    console.error('Error:', error);
+                }
+            }
+
+            readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = e => reject(new Error('File reading failed'));
+                    reader.readAsText(file);
+                });
+            }
+
+            parseCSV(csvText) {
+                const lines = csvText.split('\n').filter(line => line.trim());
+                if (lines.length < 2) return [];
+
+                // Simple CSV parsing (for well-formatted MFTECmd exports)
+                const headers = lines[0].split(',').map(h => h.replace(/^﻿/, '').trim()); // Remove BOM if present
+                
+                return lines.slice(1).map(line => {
+                    const values = this.parseCSVLine(line);
+                    if (values.length !== headers.length) return null;
+                    
+                    const entry = {};
+                    headers.forEach((header, index) => {
+                        entry[header] = values[index] || '';
+                    });
+                    
+                    // Convert string values to proper types
+                    entry.EntryNumber = parseInt(entry.EntryNumber) || 0;
+                    entry.ParentEntryNumber = parseInt(entry.ParentEntryNumber) || 0;
+                    entry.FileSize = parseInt(entry.FileSize) || 0;
+                    entry.InUse = entry.InUse === 'True';
+                    entry.IsDirectory = entry.IsDirectory === 'True';
+                    
+                    return entry;
+                }).filter(entry => entry && entry.FileName); // Filter out invalid entries
+            }
+
+            parseCSVLine(line) {
+                const values = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+                    
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            i++; // Skip next quote
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        values.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                values.push(current);
+                return values.map(v => v.trim());
+            }
+
+            buildDirectoryTree() {
+                const entryMap = new Map();
+                this.entries.forEach(entry => {
+                    entryMap.set(entry.EntryNumber, entry);
+                });
+
+                // Find root entries (where parent is self or doesn't exist)
+                const rootEntries = this.entries.filter(entry => 
+                    entry.ParentEntryNumber === entry.EntryNumber || 
+                    !entryMap.has(entry.ParentEntryNumber)
+                );
+
+                this.treeData = {
+                    name: 'Root',
+                    path: '.',
+                    isDirectory: true,
+                    children: this.buildTreeLevel(rootEntries, entryMap)
+                };
+            }
+
+            buildTreeLevel(entries, entryMap) {
+                return entries.map(entry => {
+                    const node = {
+                        name: entry.FileName,
+                        path: entry.ParentPath + '\\' + entry.FileName,
+                        isDirectory: entry.IsDirectory,
+                        isDeleted: !entry.InUse,
+                        entry: entry,
+                        children: []
+                    };
+
+                    if (node.isDirectory) {
+                        // Find children of this directory
+                        const children = this.entries.filter(child => 
+                            child.ParentEntryNumber === entry.EntryNumber && 
+                            child.EntryNumber !== entry.EntryNumber
+                        );
+                        node.children = this.buildTreeLevel(children, entryMap);
+                    }
+
+                    return node;
+                });
+            }
+
+            renderTree() {
+                this.applyFilters();
+                const treeElement = document.getElementById('treeView');
+                treeElement.innerHTML = '';
+                treeElement.appendChild(this.renderTreeNode(this.filteredTree));
+            }
+
+            applyFilters() {
+                const searchTerm = this.currentSearch.toLowerCase();
+                const filter = this.currentFilter;
+
+                const filterNode = (node) => {
+                    // Apply search filter
+                    const matchesSearch = searchTerm === '' || 
+                        node.name.toLowerCase().includes(searchTerm) ||
+                        node.path.toLowerCase().includes(searchTerm);
+
+                    // Apply status filter
+                    const matchesFilter = filter === 'all' ||
+                        (filter === 'active' && !node.isDeleted) ||
+                        (filter === 'deleted' && node.isDeleted);
+
+                    if (!matchesSearch || !matchesFilter) {
+                        return null;
+                    }
+
+                    const filteredNode = { ...node };
+                    if (node.children) {
+                        filteredNode.children = node.children.map(filterNode).filter(child => child !== null);
+                    }
+
+                    return filteredNode;
+                };
+
+                this.filteredTree = filterNode(this.treeData);
+            }
+
+            renderTreeNode(node) {
+                const element = document.createElement('div');
+                
+                if (node.isDirectory) {
+                    element.className = 'folder';
+                    element.innerHTML = `
+                        <span class="folder-name">${this.escapeHtml(node.name)}</span>
+                        <span class="file-size">${node.children.length} items</span>
+                    `;
+                    
+                    const childrenElement = document.createElement('div');
+                    childrenElement.className = 'children';
+                    
+                    node.children.forEach(child => {
+                        childrenElement.appendChild(this.renderTreeNode(child));
+                    });
+                    
+                    element.appendChild(childrenElement);
+                    
+                    // Add click to toggle
+                    element.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        element.classList.toggle('collapsed');
+                    });
+                    
+                } else {
+                    element.className = `file ${node.isDeleted ? 'deleted' : ''}`;
+                    const size = this.formatFileSize(node.entry.FileSize);
+                    const date = node.entry.Created0x10 ? new Date(node.entry.Created0x10).toLocaleDateString() : '';
+                    
+                    element.innerHTML = `
+                        <span class="file-name">${this.escapeHtml(node.name)}</span>
+                        <span class="file-size">${size}</span>
+                        ${date ? `<span class="file-date">${date}</span>` : ''}
+                    `;
+                    
+                    // Add tooltip with full metadata
+                    element.title = this.getFileTooltip(node.entry);
+                }
+                
+                return element;
+            }
+
+            getFileTooltip(entry) {
+                return `
+File: ${entry.FileName}
+Path: ${entry.ParentPath}
+Size: ${this.formatFileSize(entry.FileSize)}
+Created: ${entry.Created0x10 || 'N/A'}
+Modified: ${entry.LastModified0x10 || 'N/A'}
+Status: ${entry.InUse ? 'Active' : 'Deleted'}
+Entry: ${entry.EntryNumber}
+                `.trim();
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            updateStats() {
+                const files = this.entries.filter(e => !e.IsDirectory);
+                const folders = this.entries.filter(e => e.IsDirectory);
+                const deleted = this.entries.filter(e => !e.InUse);
+                const totalSize = files.reduce((sum, file) => sum + file.FileSize, 0);
+
+                document.getElementById('fileCount').textContent = files.length.toLocaleString();
+                document.getElementById('folderCount').textContent = folders.length.toLocaleString();
+                document.getElementById('deletedCount').textContent = deleted.length.toLocaleString();
+                document.getElementById('totalSize').textContent = this.formatFileSize(totalSize);
+            }
+
+            showLoading(message) {
+                document.getElementById('treeView').innerHTML = `<div class="loading">${message}</div>`;
+            }
+
+            showError(message) {
+                document.getElementById('treeView').innerHTML = `<div class="error">${message}</div>`;
+            }
+
+            search(term) {
+                this.currentSearch = term;
+                this.renderTree();
+            }
+
+            filter(status) {
+                this.currentFilter = status;
+                this.renderTree();
+            }
+        }
+
+        // Initialize the viewer
+        const viewer = new MFTViewer();
+
+        // Set up event listeners
+        document.getElementById('csvFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                viewer.loadCSV(file);
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            viewer.search(e.target.value);
+        });
+
+        document.getElementById('viewFilter').addEventListener('change', (e) => {
+            viewer.filter(e.target.value);
+        });
+
+        // Global functions for buttons
+        function expandAll() {
+            document.querySelectorAll('.folder').forEach(folder => {
+                folder.classList.remove('collapsed');
+            });
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.folder').forEach(folder => {
+                folder.classList.add('collapsed');
+            });
+        }
+
+        function exportTree() {
+            if (!viewer.treeData) {
+                alert('Please load an MFT file first');
+                return;
+            }
+            
+            const treeText = generateTreeText(viewer.treeData);
+            const blob = new Blob([treeText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mft-tree-structure.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function generateTreeText(node, prefix = '', isLast = true) {
+            let result = '';
+            const connector = isLast ? '└── ' : '├── ';
+            
+            result += prefix + connector + node.name + (node.isDirectory ? '/' : '') + '\n';
+            
+            if (node.children) {
+                const newPrefix = prefix + (isLast ? '    ' : '│   ');
+                node.children.forEach((child, index) => {
+                    result += generateTreeText(child, newPrefix, index === node.children.length - 1);
+                });
+            }
+            
+            return result;
+        }
+    </script>
+</body>
+</html>
