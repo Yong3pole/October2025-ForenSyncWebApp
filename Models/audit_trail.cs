@@ -5,7 +5,7 @@ namespace ForenSync_WebApp_New.Models
     public class audit_trail
     {
         [Key]
-        public int event_id { get; set; }  // Changed to int
+        public string event_id { get; set; }  // Changed to string
 
         public string user_id { get; set; }
 

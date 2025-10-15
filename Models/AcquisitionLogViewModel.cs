@@ -5,7 +5,7 @@ namespace ForenSync_WebApp_New.Models
 {
     public class AcquisitionLogViewModel
     {
-        public int AcquisitionId { get; set; }
+        public string AcquisitionId { get; set; }
 
         [Display(Name = "Case ID")]
         public string CaseId { get; set; }

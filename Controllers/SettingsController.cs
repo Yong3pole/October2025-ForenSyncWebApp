@@ -290,7 +290,7 @@ namespace ForenSync_WebApp_New.Controllers
                         {
                             var acquisitionLog = new acquisition_log
                             {
-                                acquisition_id = Convert.ToInt32(reader["acquisition_id"]),
+                                acquisition_id = reader["acquisition_id"]?.ToString(),
                                 case_id = reader["case_id"]?.ToString(),
                                 type = reader["type"]?.ToString(),
                                 tool = reader["tool"]?.ToString(),
@@ -342,7 +342,7 @@ namespace ForenSync_WebApp_New.Controllers
                 }
 
                 // Get existing event IDs from local database
-                var existingEventIds = new List<int>();
+                var existingEventIds = new List<string>();
                 try
                 {
                     existingEventIds = await _context.audit_trail
@@ -369,7 +369,7 @@ namespace ForenSync_WebApp_New.Controllers
                         {
                             var auditTrail = new audit_trail
                             {
-                                event_id = Convert.ToInt32(reader["event_id"]),
+                                event_id = reader["event_id"]?.ToString(),
                                 user_id = reader["user_id"]?.ToString(),
                                 action = reader["action"]?.ToString(),
                                 created_at = GetSafeString(reader["created_at"]),

@@ -6,7 +6,7 @@ namespace ForenSync_WebApp_New.Models
     public class acquisition_log
     {
         [Key]
-        public int acquisition_id { get; set; }
+        public string acquisition_id { get; set; }
 
         public string case_id { get; set; }
         public string type { get; set; }
