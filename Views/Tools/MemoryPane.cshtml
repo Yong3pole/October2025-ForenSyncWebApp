@@ -1,0 +1,353 @@
+﻿@{
+    ViewData["Title"] = "RAM Memory Pane";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-memory me-2"></i>@ViewData["Title"]
+            </h2>
+
+            <!-- File Selection Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-binary me-2"></i>Select Memory File
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="memoryFile" class="form-label">Choose Memory Dump File</label>
+                        <input class="form-control" type="file" id="memoryFile"
+                               accept=".img,.bin,.mem,.raw,.dmp,.aff4,.vmem,.crashdump">
+                        <div class="form-text">
+                            Supported formats: .img, .bin, .mem, .raw, .dmp, .aff4, .vmem, .crashdump
+                            <br><small class="text-muted">File is processed locally in your browser - no upload to server</small>
+                        </div>
+                    </div>
+
+                    <!-- File Info Display -->
+                    <div id="fileInfoContainer" class="mt-3" style="display: none;">
+                        <div class="p-3 bg-light rounded">
+                            <h6>Loaded File Information:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Filename:</strong> <span id="fileNameDisplay"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Size:</strong> <span id="fileSizeDisplay"></span>
+                                </div>
+                            </div>
+                            <!-- Progress bar removed from here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hex Viewer Card -->
+            <div class="card">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-hexagon me-2"></i>Hex Viewer
+                    </h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="input-group input-group-sm" style="width: 200px;">
+                            <span class="input-group-text">0x</span>
+                            <input type="text" class="form-control" id="offsetInput" value="0" placeholder="Hex offset">
+                        </div>
+                        <button class="btn btn-light btn-sm" id="jumpBtn">
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                        <div class="btn-group ms-2">
+                            <button type="button" class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                Load Size
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" data-chunk="4096">4 KB</a></li>
+                                <li><a class="dropdown-item" href="#" data-chunk="16384">16 KB</a></li>
+                                <li><a class="dropdown-item" href="#" data-chunk="65536">64 KB</a></li>
+                                <li><a class="dropdown-item" href="#" data-chunk="262144">256 KB</a></li>
+                                <li><a class="dropdown-item" href="#" data-chunk="1048576">1 MB</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="hexViewerContainer">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-file-earmark-x display-4 d-block mb-3"></i>
+                            <h5>No memory file selected</h5>
+                            <p>Please choose a memory dump file to view its contents.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let currentFile = null;
+        let currentOffset = 0;
+        let chunkSize = 65536; // Start with 64KB chunks
+        let isLoading = false;
+        let loadedUntil = 0;
+
+        document.getElementById('memoryFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            currentFile = file;
+            currentOffset = 0;
+            loadedUntil = 0;
+            isLoading = false;
+
+            // Show file info
+            document.getElementById('fileNameDisplay').textContent = file.name;
+            document.getElementById('fileSizeDisplay').textContent = formatFileSize(file.size);
+            document.getElementById('fileInfoContainer').style.display = 'block';
+
+            // Show hex viewer
+            showHexViewer();
+        });
+
+        function showHexViewer() {
+            document.getElementById('hexViewerContainer').innerHTML = `
+                <div class="hex-viewer-container">
+                    <div class="hex-header bg-dark text-light p-2 font-monospace small fw-bold d-flex justify-content-between">
+                        <span>Offset     Hex Bytes                                      ASCII</span>
+                        <span id="viewStats"></span>
+                    </div>
+                    <pre class="hex-content m-0 p-2 font-monospace small"
+                         id="hexContent"
+                         style="height: 500px; overflow-y: auto; background: #2e2e2e; color: #dcdcdc; line-height: 1.2; white-space: pre;"></pre>
+                    <div class="p-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button class="btn btn-primary btn-sm" id="loadInitialBtn">
+                                    <i class="bi bi-play-fill me-1"></i>Load Initial View
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" id="prevBtn" disabled>
+                                    <i class="bi bi-chevron-left me-1"></i>Previous
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" id="nextBtn" disabled>
+                                    Next<i class="bi bi-chevron-right ms-1"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="goToStartBtn" disabled>
+                                    <i class="bi bi-skip-start me-1"></i>Start
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="goToEndBtn" disabled>
+                                    <i class="bi bi-skip-end me-1"></i>End
+                                </button>
+                            </div>
+                            <div class="text-muted small">
+                                Offset: <span id="currentOffsetDisplay">0x0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners
+            document.getElementById('loadInitialBtn').addEventListener('click', loadInitialView);
+            document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
+            document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
+            document.getElementById('goToStartBtn').addEventListener('click', goToStart);
+            document.getElementById('goToEndBtn').addEventListener('click', goToEnd);
+            document.getElementById('jumpBtn').addEventListener('click', jumpToOffset);
+            document.getElementById('offsetInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') jumpToOffset();
+            });
+
+            // Load size dropdown
+            document.querySelectorAll('.dropdown-item[data-chunk]').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    chunkSize = parseInt(e.target.getAttribute('data-chunk'));
+                    document.querySelector('.dropdown-toggle').textContent =
+                        `Load: ${formatFileSize(chunkSize)}`;
+                });
+            });
+
+            // Auto-load on scroll
+            document.getElementById('hexContent').addEventListener('scroll', function() {
+                if (!isLoading && this.scrollTop + this.clientHeight >= this.scrollHeight - 100) {
+                    loadMoreData();
+                }
+            });
+        }
+
+        function loadInitialView() {
+            if (!currentFile || isLoading) return;
+
+            const loadBtn = document.getElementById('loadInitialBtn');
+            loadBtn.disabled = true;
+            loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+
+            // Load a substantial initial chunk (e.g., 1MB or 10% of file, whichever is smaller)
+            const initialChunkSize = Math.min(chunkSize * 4, currentFile.size, 1048576);
+
+            loadChunk(0, initialChunkSize, true).then(() => {
+                loadBtn.style.display = 'none';
+                document.getElementById('prevBtn').disabled = false;
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('goToStartBtn').disabled = false;
+                document.getElementById('goToEndBtn').disabled = false;
+            });
+        }
+
+        async function loadChunk(offset, size, isInitial = false) {
+            if (!currentFile || isLoading) return;
+
+            isLoading = true;
+            const slice = currentFile.slice(offset, offset + size);
+
+            try {
+                const arrayBuffer = await readFileSlice(slice);
+                const hexData = arrayBufferToHex(arrayBuffer, offset);
+
+                const hexContent = document.getElementById('hexContent');
+                if (isInitial) {
+                    hexContent.textContent = hexData;
+                    loadedUntil = offset + size;
+                } else {
+                    hexContent.textContent += '\n' + hexData;
+                    loadedUntil += size;
+                }
+
+                updateDisplay(offset);
+
+            } catch (error) {
+                console.error('Error loading chunk:', error);
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function readFileSlice(slice) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = e => reject(e.target.error);
+                reader.readAsArrayBuffer(slice);
+            });
+        }
+
+        function loadMoreData() {
+            if (loadedUntil >= currentFile.size) return; // Entire file loaded
+
+            const nextChunkSize = Math.min(chunkSize, currentFile.size - loadedUntil);
+            loadChunk(loadedUntil, nextChunkSize, false);
+        }
+
+        function navigate(direction) {
+            if (isLoading) return;
+
+            const newOffset = currentOffset + (direction * chunkSize);
+            if (newOffset >= 0 && newOffset < currentFile.size) {
+                currentOffset = newOffset;
+                // For navigation, load a fresh chunk at the new position
+                loadChunk(currentOffset, chunkSize, true);
+            }
+        }
+
+        function goToStart() {
+            currentOffset = 0;
+            loadChunk(0, chunkSize, true);
+        }
+
+        function goToEnd() {
+            currentOffset = Math.max(0, currentFile.size - chunkSize);
+            loadChunk(currentOffset, chunkSize, true);
+        }
+
+        function jumpToOffset() {
+            const offsetInput = document.getElementById('offsetInput').value;
+            const offset = parseInt(offsetInput, 16);
+
+            if (!isNaN(offset) && offset >= 0 && offset < currentFile.size) {
+                currentOffset = offset;
+                loadChunk(currentOffset, chunkSize, true);
+            } else {
+                alert('Please enter a valid hexadecimal offset within file bounds.');
+            }
+        }
+
+        function arrayBufferToHex(buffer, baseOffset) {
+            const view = new Uint8Array(buffer);
+            let hexString = '';
+
+            for (let i = 0; i < view.length; i += 16) {
+                const rowBytes = Math.min(16, view.length - i);
+
+                // Offset
+                hexString += `${(baseOffset + i).toString(16).padStart(8, '0')}  `;
+
+                // Hex bytes
+                let hexBytes = '';
+                let asciiChars = '';
+
+                for (let j = 0; j < 16; j++) {
+                    if (j < rowBytes) {
+                        hexBytes += `${view[i + j].toString(16).padStart(2, '0')} `;
+                        asciiChars += (view[i + j] >= 32 && view[i + j] <= 126) ?
+                                    String.fromCharCode(view[i + j]) : '.';
+                    } else {
+                        hexBytes += '   ';
+                        asciiChars += ' ';
+                    }
+                }
+
+                hexString += `${hexBytes.padEnd(48)} ${asciiChars}\n`;
+            }
+
+            return hexString;
+        }
+
+        function updateDisplay(offset) {
+            document.getElementById('currentOffsetDisplay').textContent = '0x' + offset.toString(16).toUpperCase();
+            document.getElementById('offsetInput').value = offset.toString(16);
+
+            // Update view stats in header
+            const stats = `Viewing: ${formatFileSize(loadedUntil)} / ${formatFileSize(currentFile.size)}`;
+            document.getElementById('viewStats').textContent = stats;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+
+    <style>
+        .hex-content {
+            font-family: 'Courier New', monospace !important;
+        }
+
+        .hex-header {
+            font-family: 'Courier New', monospace !important;
+        }
+
+        .hex-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .hex-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .hex-content::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+            .hex-content::-webkit-scrollbar-thumb:hover {
+                background: #777;
+            }
+    </style>
+}

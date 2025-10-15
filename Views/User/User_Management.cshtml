@@ -1,0 +1,83 @@
+﻿@model List<ForenSync_WebApp_New.Models.users_tbl> 
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "User Management";
+}
+
+<h3>User Management</h3>
+
+<!-- Top Controls -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+    <input type="text" id="searchInput" placeholder="Search user..." class="form-control w-25" />
+
+    <div class="d-flex gap-4">
+        <a href="#" class="text-decoration-none text-dark fw-bold filter-link" data-role="all">View All</a>
+        <a href="#" class="text-decoration-none text-dark fw-bold filter-link" data-role="User">Users</a>
+        <a href="#" class="text-decoration-none text-dark fw-bold filter-link" data-role="Admin">Admin</a>
+    </div>
+</div>
+
+<!-- Grid of Users -->
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4" id="userGrid">
+    @foreach (var user in Model)
+    {
+        <div class="col user-card" data-name="@user.firstName @user.lastName" data-role="@user.role">
+            <div class="card h-100 shadow-sm text-center p-3">
+                <div class="card-body">
+                    <h5 class="card-title">@user.firstName @user.lastName</h5>
+                    <p class="card-text">@user.role</p>
+
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        const searchInput = document.getElementById("searchInput");
+        const userCards = document.querySelectorAll(".user-card");
+        const filterLinks = document.querySelectorAll(".filter-link");
+
+        // Search filter
+        searchInput.addEventListener("input", () => {
+            const searchValue = searchInput.value.toLowerCase();
+            userCards.forEach(card => {
+                const name = card.getAttribute("data-name").toLowerCase(); // normalize here
+                if (name.includes(searchValue)) {
+                    card.classList.remove("d-none");
+                } else {
+                    card.classList.add("d-none");
+                }
+            });
+        });
+
+        // Role filter
+        filterLinks.forEach(link => {
+            link.addEventListener("click", e => {
+                e.preventDefault();
+                const role = link.getAttribute("data-role");
+
+                searchInput.value = ""; // clear search
+
+                userCards.forEach(card => {
+                    const cardRole = card.getAttribute("data-role");
+                    if (role === "all" || cardRole === role) {
+                        card.classList.remove("d-none");
+                    } else {
+                        card.classList.add("d-none");
+                    }
+                });
+            });
+        });
+    </script>
+
+    <style>
+        .filter-link:hover {
+            text-decoration: underline;
+            color: #0d6efd;
+            cursor: pointer;
+        }
+    </style>
+}

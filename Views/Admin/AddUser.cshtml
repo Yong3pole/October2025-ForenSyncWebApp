@@ -1,0 +1,148 @@
+﻿@model ForenSync_WebApp_New.Models.AddUserViewModel
+
+@{
+    ViewData["Title"] = "Add New User";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-person-plus"></i> Add New User
+                    </h4>
+                </div>
+                <div class="card-body">
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger">
+                            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <div>@error.ErrorMessage</div>
+                            }
+                        </div>
+                    }
+
+                    <form asp-action="AddUser" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label asp-for="UserId" class="form-label"></label>
+                                    <input asp-for="UserId" class="form-control" />
+                                    <span asp-validation-for="UserId" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="FirstName" class="form-label"></label>
+                                    <input asp-for="FirstName" class="form-control" />
+                                    <span asp-validation-for="FirstName" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="LastName" class="form-label"></label>
+                                    <input asp-for="LastName" class="form-control" />
+                                    <span asp-validation-for="LastName" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Email" class="form-label"></label>
+                                    <input asp-for="Email" class="form-control" type="email" />
+                                    <span asp-validation-for="Email" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="BadgeNum" class="form-label"></label>
+                                    <input asp-for="BadgeNum" class="form-control" />
+                                    <span asp-validation-for="BadgeNum" class="text-danger"></span>
+                                    <small class="form-text text-muted">Optional - unique badge number</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label asp-for="Phone" class="form-label"></label>
+                                    <input asp-for="Phone" class="form-control" />
+                                    <span asp-validation-for="Phone" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Department" class="form-label"></label>
+                                    <input asp-for="Department" class="form-control" />
+                                    <span asp-validation-for="Department" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Role" class="form-label"></label>
+                                    <select asp-for="Role" class="form-select">
+                                        <option value="">Select Role</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="operator">Operator</option>
+                                        <!-- Remove 'user' and 'analyst' options since they're not allowed -->
+                                    </select>
+                                    <span asp-validation-for="Role" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Password" class="form-label"></label>
+                                    <input asp-for="Password" class="form-control" type="password" />
+                                    <span asp-validation-for="Password" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                                    <input asp-for="ConfirmPassword" class="form-control" type="password" />
+                                    <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3 form-check">
+                                    <input asp-for="IsActive" class="form-check-input" />
+                                    <label asp-for="IsActive" class="form-check-label"></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-person-plus"></i> Add User
+                            </button>
+                            <a href="@Url.Action("ManageUsers")" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Users
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+                document.addEventListener('DOMContentLoaded', function() {
+            const firstNameInput = document.getElementById('FirstName');
+            const lastNameInput = document.getElementById('LastName');
+            const userIdInput = document.getElementById('UserId');
+
+            function generateUserId() {
+                // Only generate if User ID field is empty
+                if (userIdInput.value.trim() === '') {
+                    const firstName = firstNameInput.value.trim().toLowerCase();
+                    const lastName = lastNameInput.value.trim().toLowerCase();
+
+                    if (firstName && lastName) {
+                        const userId = firstName.charAt(0) + lastName;
+                        userIdInput.value = userId;
+                    }
+                }
+            }
+
+            firstNameInput.addEventListener('blur', generateUserId);
+            lastNameInput.addEventListener('blur', generateUserId);
+        });
+    </script>
+}

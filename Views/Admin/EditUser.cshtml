@@ -1,0 +1,204 @@
+﻿@model ForenSync_WebApp_New.Models.EditUserViewModel
+
+@{
+    ViewData["Title"] = "Edit User";
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title mb-0">
+                        <i class="bi bi-person-gear"></i> Edit User: @Model.UserId
+                    </h4>
+                </div>
+                <div class="card-body">
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger">
+                            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                            {
+                                <div>@error.ErrorMessage</div>
+                            }
+                        </div>
+                    }
+
+                    <form asp-action="EditUser" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="UserId" />
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">User ID</label>
+                                    <input type="text" class="form-control" value="@Model.UserId" readonly />
+                                    <small class="form-text text-muted">User ID cannot be changed</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="FirstName" class="form-label"></label>
+                                    <input asp-for="FirstName" class="form-control" />
+                                    <span asp-validation-for="FirstName" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="LastName" class="form-label"></label>
+                                    <input asp-for="LastName" class="form-control" />
+                                    <span asp-validation-for="LastName" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Email" class="form-label"></label>
+                                    <input asp-for="Email" class="form-control" type="email" />
+                                    <span asp-validation-for="Email" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="BadgeNum" class="form-label"></label>
+                                    <input asp-for="BadgeNum" class="form-control" />
+                                    <span asp-validation-for="BadgeNum" class="text-danger"></span>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label asp-for="Phone" class="form-label"></label>
+                                    <input asp-for="Phone" class="form-control" />
+                                    <span asp-validation-for="Phone" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Department" class="form-label"></label>
+                                    <input asp-for="Department" class="form-control" />
+                                    <span asp-validation-for="Department" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Role" class="form-label"></label>
+                                    <select asp-for="Role" class="form-select">
+                                        <option value="">Select Role</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="operator">Operator</option>
+                                    </select>
+                                    <span asp-validation-for="Role" class="text-danger"></span>
+                                </div>
+
+                                <div class="mb-3 form-check">
+                                    <input asp-for="IsActive" class="form-check-input" />
+                                    <label asp-for="IsActive" class="form-check-label"></label>
+                                </div>
+
+                                <!-- Password Reset Section -->
+                                <div class="card mt-4">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Password Reset</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3 form-check">
+                                            <input asp-for="ResetPassword" class="form-check-input" id="resetPasswordCheck" />
+                                            <label asp-for="ResetPassword" class="form-check-label">Reset user's password</label>
+                                        </div>
+
+                                        <div id="passwordFields" style="display: none;">
+                                            <div class="mb-3">
+                                                <label asp-for="NewPassword" class="form-label"></label>
+                                                <input asp-for="NewPassword" class="form-control" type="password" />
+                                                <span asp-validation-for="NewPassword" class="text-danger"></span>
+                                                <small class="form-text text-muted">
+                                                    Password must be at least 8 characters with uppercase, lowercase, number, and symbol.
+                                                </small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label asp-for="ConfirmNewPassword" class="form-label"></label>
+                                                <input asp-for="ConfirmNewPassword" class="form-control" type="password" />
+                                                <span asp-validation-for="ConfirmNewPassword" class="text-danger"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Update User
+                            </button>
+                            <a href="@Url.Action("ManageUsers")" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Users
+                            </a>
+                            <button type="reset" class="btn btn-outline-warning">
+                                <i class="bi bi-arrow-clockwise"></i> Reset Form
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const resetPasswordCheck = document.getElementById('resetPasswordCheck');
+            const passwordFields = document.getElementById('passwordFields');
+            const newPasswordInput = document.getElementById('NewPassword');
+            const confirmPasswordInput = document.getElementById('ConfirmNewPassword');
+
+            function togglePasswordFields() {
+                if (resetPasswordCheck.checked) {
+                    passwordFields.style.display = 'block';
+                    // Make password fields required when visible
+                    newPasswordInput.setAttribute('required', 'required');
+                    confirmPasswordInput.setAttribute('required', 'required');
+                } else {
+                    passwordFields.style.display = 'none';
+                    // Remove required attribute when hidden
+                    newPasswordInput.removeAttribute('required');
+                    confirmPasswordInput.removeAttribute('required');
+                    // Clear password fields and validation
+                    newPasswordInput.value = '';
+                    confirmPasswordInput.value = '';
+                    // Clear validation messages
+                    const newPasswordError = document.querySelector('[data-valmsg-for="NewPassword"]');
+                    const confirmPasswordError = document.querySelector('[data-valmsg-for="ConfirmNewPassword"]');
+                    if (newPasswordError) newPasswordError.textContent = '';
+                    if (confirmPasswordError) confirmPasswordError.textContent = '';
+                }
+            }
+
+            resetPasswordCheck.addEventListener('change', togglePasswordFields);
+            togglePasswordFields(); // Initialize on page load
+
+            // Handle form submission to ensure password validation only when reset is checked
+            const form = document.querySelector('form');
+            form.addEventListener('submit', function(e) {
+                if (!resetPasswordCheck.checked) {
+                    // Clear any password validation errors if reset is not checked
+                    newPasswordInput.value = '';
+                    confirmPasswordInput.value = '';
+                }
+            });
+        });
+    </script>
+}

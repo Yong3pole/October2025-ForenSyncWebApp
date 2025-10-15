@@ -1,0 +1,457 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Dashboard";
+}
+
+<!-- Updated Welcome Modal -->
+<div class="modal fade" id="syncModal" tabindex="-1" aria-labelledby="syncModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="syncModalLabel">
+                    <i class="bi bi-cloud-arrow-down text-primary"></i> Sync Toolkit Data
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="bi bi-info-circle text-primary" style="font-size: 2rem;"></i>
+                </div>
+                <p class="text-center">
+                    <strong>Keep your data up to date!</strong>
+                </p>
+                <p>
+                    For the best experience, import your latest forensic cases and acquisition logs from your toolkit.
+                    This ensures all your data is synchronized and available for analysis.
+                </p>
+                <div class="alert alert-light border">
+                    <small>
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>Tip:</strong> You can always do this later from the <strong>Settings</strong> page if you're not ready now.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="syncSettingsBtn">
+                    <i class="bi bi-gear"></i> Go to Settings
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="syncSkipBtn">
+                    <i class="bi bi-clock"></i> Maybe Later
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Content -->
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>ForenSync Dashboard</h3>
+        <div class="text-muted small">
+            Last updated: <span id="lastUpdated">@DateTime.Now.ToString("MMM dd, yyyy HH:mm")</span>
+            <button class="btn btn-sm btn-outline-secondary ms-2" id="refreshBtn">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingIndicator" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading dashboard data...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading dashboard data...</p>
+    </div>
+
+    <!-- Dashboard Content (initially hidden) -->
+    <div id="dashboardContent" style="display: none;">
+        <!-- Main Charts Row -->
+        <div class="row my-4">
+            <div class="col-md-4">
+                <div class="card text-center p-3 h-100">
+                    <h5>Acquisition Types</h5>
+                    <canvas id="acquisitionPieChart" height="250"></canvas>
+                    <div class="mt-2 small text-muted">
+                        Breakdown of capture methods
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card p-3 h-100">
+                    <h5>Activity Timeline</h5>
+                    <p class="text-muted small mb-3">Cases and acquisitions over time</p>
+                    <canvas id="activityLineChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards Row -->
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <i class="bi bi-folder2-open text-primary fs-1 mb-2"></i>
+                    <h6>Total Cases</h6>
+                    <p class="mb-0 display-6 text-primary" id="totalCases">0</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <i class="bi bi-download text-success fs-1 mb-2"></i>
+                    <h6>Total Imports</h6>
+                    <p class="mb-0 display-6 text-success" id="totalImports">0</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <i class="bi bi-upload text-info fs-1 mb-2"></i>
+                    <h6>Total Exports</h6>
+                    <p class="mb-0 display-6 text-info" id="totalExports">0</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center p-3">
+                    <i class="bi bi-exclamation-triangle text-warning fs-1 mb-2"></i>
+                    <h6>Anomalies</h6>
+                    <p class="mb-0 display-6 text-warning" id="totalAnomalies">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Recent Activity -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Quick Actions</h6>
+                        <span class="badge bg-primary">Shortcuts</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="@Url.Action("CaseViewer", "Case")" class="btn btn-outline-primary text-start py-3">
+                                <i class="bi bi-folder2-open me-2 fs-5"></i>
+                                <div>
+                                    <strong>Case Management</strong>
+                                    <br>
+                                    <small class="text-muted">View and manage forensic cases</small>
+                                </div>
+                            </a>
+                            <a href="@Url.Action("MemoryPane", "Tools")" class="btn btn-outline-success text-start py-3">
+                                <i class="bi bi-memory me-2 fs-5"></i>
+                                <div>
+                                    <strong>Memory Analysis</strong>
+                                    <br>
+                                    <small class="text-muted">Analyze memory dumps and captures</small>
+                                </div>
+                            </a>
+                            <a href="@Url.Action("AnomalyViewer", "Tools")" class="btn btn-outline-warning text-start py-3">
+                                <i class="bi bi-exclamation-triangle me-2 fs-5"></i>
+                                <div>
+                                    <strong>Anomaly Detection</strong>
+                                    <br>
+                                    <small class="text-muted">Review detected anomalies</small>
+                                </div>
+                            </a>
+                            <a href="@Url.Action("AcquisitionHistory", "Case")" class="btn btn-outline-info text-start py-3">
+                                <i class="bi bi-clock-history me-2 fs-5"></i>
+                                <div>
+                                    <strong>Acquisition History</strong>
+                                    <br>
+                                    <small class="text-muted">View acquisition timeline</small>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Recent Activity</h6>
+                        <span class="badge bg-secondary">Live</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentActivityList">
+                            <!-- Activity will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let acquisitionPieChart, activityLineChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize modal if needed
+            const showModal = @(ViewBag.ShowSyncModal?.ToString().ToLower() ?? "false");
+            if (showModal === true) {
+                initializeSyncModal();
+            }
+
+            // Load dashboard data
+            loadDashboardData();
+
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
+        });
+
+        function initializeSyncModal() {
+            const modal = new bootstrap.Modal(document.getElementById('syncModal'));
+            modal.show();
+
+            document.getElementById("syncSettingsBtn").addEventListener("click", () => {
+                modal.hide();
+                window.location.href = '@Url.Action("Index", "Settings")';
+            });
+
+            document.getElementById("syncSkipBtn").addEventListener("click", () => {
+                modal.hide();
+            });
+        }
+
+        async function loadDashboardData() {
+            showLoading(true);
+
+            try {
+                const response = await fetch('@Url.Action("GetDashboardData", "Dashboard")');
+                const data = await response.json();
+
+                if (data.success) {
+                    updateDashboard(data);
+                } else {
+                    showError('Failed to load dashboard data');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                // For demo purposes, use sample data if API fails
+                useSampleData();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateDashboard(data) {
+            // Update statistics cards
+            document.getElementById('totalCases').textContent = data.totalCases || '0';
+            document.getElementById('totalImports').textContent = data.totalImports || '0';
+            document.getElementById('totalExports').textContent = data.totalExports || '0';
+            document.getElementById('totalAnomalies').textContent = data.totalAnomalies || '0';
+
+            // Update last updated time
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+
+            // Update charts
+            updateCharts(data.charts);
+
+            // Update recent activity
+            updateRecentActivity(data.recentActivity);
+        }
+
+        function updateCharts(chartData) {
+            // Acquisition Pie Chart
+            if (acquisitionPieChart) acquisitionPieChart.destroy();
+            const pieCanvas = document.getElementById('acquisitionPieChart');
+            if (pieCanvas) {
+                acquisitionPieChart = new Chart(pieCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: chartData?.acquisitionTypes?.labels || ['Memory Capture', 'Drive Image', 'File Clone', 'Network Capture'],
+                        datasets: [{
+                            data: chartData?.acquisitionTypes?.data || [45, 30, 15, 10],
+                            backgroundColor: [
+                                '#3b82f6', // Blue for Memory
+                                '#10b981', // Green for Drive
+                                '#f59e0b', // Yellow for File
+                                '#8b5cf6'  // Purple for Network
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Activity Line Chart
+            if (activityLineChart) activityLineChart.destroy();
+            const lineCanvas = document.getElementById('activityLineChart');
+            if (lineCanvas) {
+                activityLineChart = new Chart(lineCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: chartData?.activityTimeline?.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [
+                            {
+                                label: 'Cases',
+                                data: chartData?.activityTimeline?.cases || [12, 19, 8, 15, 22, 18],
+                                borderColor: '#0c3b66',
+                                backgroundColor: 'rgba(12, 59, 102, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: 'Acquisitions',
+                                data: chartData?.activityTimeline?.acquisitions || [8, 12, 6, 10, 15, 20],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateRecentActivity(activities) {
+            const container = document.getElementById('recentActivityList');
+            if (!activities || activities.length === 0) {
+                // Use sample activities if none provided
+                container.innerHTML = `
+                    <div class="d-flex align-items-start py-2 border-bottom">
+                        <i class="bi bi-memory text-primary me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <small>Memory capture completed for Case-2024-001</small>
+                            <br>
+                            <small class="text-muted">2 hours ago</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start py-2 border-bottom">
+                        <i class="bi bi-hdd text-success me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <small>Drive image imported for forensic analysis</small>
+                            <br>
+                            <small class="text-muted">5 hours ago</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start py-2 border-bottom">
+                        <i class="bi bi-exclamation-triangle text-warning me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <small>3 anomalies detected in memory analysis</small>
+                            <br>
+                            <small class="text-muted">Yesterday</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start py-2">
+                        <i class="bi bi-file-earmark-arrow-up text-info me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <small>Export report generated for Case-2024-015</small>
+                            <br>
+                            <small class="text-muted">2 days ago</small>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => `
+                <div class="d-flex align-items-start py-2 border-bottom">
+                    <i class="bi bi-${activity.icon} text-${activity.type} me-2 mt-1"></i>
+                    <div class="flex-grow-1">
+                        <small>${activity.description}</small>
+                        <br>
+                        <small class="text-muted">${activity.time}</small>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function useSampleData() {
+            // Sample data for demo purposes
+            const sampleData = {
+                success: true,
+                totalCases: 24,
+                totalImports: 156,
+                totalExports: 89,
+                totalAnomalies: 12,
+                charts: {
+                    acquisitionTypes: {
+                        labels: ['Memory Capture', 'Drive Image', 'File Clone', 'Network Capture'],
+                        data: [67, 42, 28, 15]
+                    },
+                    activityTimeline: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        cases: [8, 12, 6, 15, 18, 24],
+                        acquisitions: [15, 22, 18, 25, 30, 42]
+                    }
+                }
+            };
+            updateDashboard(sampleData);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+            document.getElementById('dashboardContent').style.display = show ? 'none' : 'block';
+        }
+
+        function showError(message) {
+            alert(message); // Simple alert for now
+        }
+    </script>
+
+    <style>
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+
+        .display-6 {
+            font-size: 2rem;
+            font-weight: 300;
+        }
+
+        .btn-outline-primary, .btn-outline-success,
+        .btn-outline-warning, .btn-outline-info {
+            transition: all 0.2s ease-in-out;
+        }
+
+            .btn-outline-primary:hover, .btn-outline-success:hover,
+            .btn-outline-warning:hover, .btn-outline-info:hover {
+                transform: translateX(5px);
+            }
+    </style>
+}

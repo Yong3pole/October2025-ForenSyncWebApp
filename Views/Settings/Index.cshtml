@@ -1,0 +1,237 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Settings";
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> @TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="container-fluid mt-4">
+    <h2>Settings</h2>
+
+    <!-- Volume Selection Card -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-hdd-stack"></i> Import Toolkit Cases and Logs
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Select a volume/drive to import forensic cases and acquisition logs from your toolkit.</p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <form asp-action="SelectVolume" method="post" id="volumeForm">
+                        <div class="mb-3">
+                            <label for="volumePath" class="form-label">Volume Path</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="volumePath" name="volumePath"
+                                       placeholder="e.g., C:\ or D:\ or /mnt/evidence"
+                                       value="@ViewBag.SelectedVolume" />
+                                <button type="button" class="btn btn-outline-secondary" onclick="browseForVolume()">
+                                    <i class="bi bi-folder"></i> Browse
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">
+                                Enter the drive letter or mount point of the volume containing your toolkit data.
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Common Volumes</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setVolume('C:\\')">C:\</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setVolume('D:\\')">D:\</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setVolume('E:\\')">E:\</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setVolume('F:\\')">F:\</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setVolume('/mnt/evidence')">/mnt/evidence</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-download"></i> Import from Selected Volume
+                        </button>
+                    </form>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6><i class="bi bi-info-circle"></i> How it works:</h6>
+                            <ul class="small">
+                                <li>Select the drive containing your forensic toolkit</li>
+                                <li>The system will scan for case databases and logs</li>
+                                <li>Cases will be imported into your local database</li>
+                                <li>Acquisition history will be preserved</li>
+                            </ul>
+
+                            <h6 class="mt-3">Expected folder structure:</h6>
+                            <code class="small">
+                                ToolkitDrive/<br />
+                                ├── Cases/<br />
+                                │   ├── CASE_20251013_104653/<br />
+                                │   └── CASE_20251013_115132/<br />
+                                └── Database.db
+                            </code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Imports Card (Optional) -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="card-title mb-0">Recent Imports</h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-0">No recent imports. Select a volume above to begin.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input for folder selection -->
+<input type="file" id="folderPicker" webkitdirectory directory multiple style="display: none;" />
+
+@section Scripts {
+    <script>
+        function setVolume(path) {
+            document.getElementById('volumePath').value = path;
+        }
+
+        function browseForVolume() {
+            // This will only work in some browsers for folder selection
+            document.getElementById('folderPicker').click();
+        }
+
+        document.getElementById('folderPicker').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                // Get the folder path from the first file
+                const filePath = e.target.files[0].webkitRelativePath || e.target.files[0].name;
+                const folderPath = filePath.split('/')[0];
+                document.getElementById('volumePath').value = folderPath;
+            }
+        });
+
+        // Form submission feedback
+        document.getElementById('volumeForm').addEventListener('submit', function(e) {
+            const volumePath = document.getElementById('volumePath').value;
+            if (!volumePath) {
+                e.preventDefault();
+                alert('Please select or enter a volume path.');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Scanning Volume...';
+            submitBtn.disabled = true;
+        });
+
+
+        //////////////////////////////////////////////////////
+
+                // Form submission - handle JSON response
+        document.getElementById('volumeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const volumePath = document.getElementById('volumePath').value;
+            if (!volumePath) {
+                alert('Please select or enter a volume path.');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Scanning Volume...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/Settings/SelectVolume', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `volumePath=${encodeURIComponent(volumePath)}`
+                });
+
+                const result = await response.json();
+
+                // Display JSON result in a nice format
+                displayScanResult(result);
+
+            } catch (error) {
+                console.error('Scan failed:', error);
+                alert('Scan failed: ' + error.message);
+            } finally {
+                // Reset button
+                submitBtn.innerHTML = '<i class="bi bi-download"></i> Import from Selected Volume';
+                submitBtn.disabled = false;
+            }
+        });
+
+        function displayScanResult(result) {
+            // Create a modal or display area for the JSON result
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'card mt-4';
+            resultDiv.innerHTML = `
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-clipboard-data"></i> Scan Results
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">${JSON.stringify(result, null, 2)}</pre>
+                            ${result.success ?
+                                (result.importSummary.caseFoldersCopied > 0 && result.importSummary.caseLogsImported > 0 ?
+                                    `<div class="alert alert-success mt-3">
+                                        <strong>🎉 Complete Import Success!</strong>
+                                        All data imported successfully including case folders.
+                                    </div>` :
+                                result.importSummary.caseLogsImported > 0 && result.importSummary.caseFoldersCopied === 0 ?
+                                    `<div class="alert alert-warning mt-3">
+                                        <strong>⚠️ Partial Import</strong>
+                                        Database records imported but case folders may already exist or be in use.
+                                    </div>` :
+                                result.importSummary.caseLogsImported === 0 && result.importSummary.acquisitionLogsImported === 0 ?
+                                    `<div class="alert alert-info mt-3">
+                                        <strong>ℹ️ No New Data</strong>
+                                        All data already exists in the system - no new imports needed.
+                                    </div>` :
+                                    `<div class="alert alert-success mt-3">
+                                        <strong>✅ Import Complete</strong>
+                                        Data processing finished successfully.
+                                    </div>`
+                                ) :
+                                `<div class="alert alert-danger mt-3">
+                                    <strong>❌ Import Failed:</strong> ${result.error}
+                                </div>`
+                            }
+                </div>
+            `;
+
+            // Remove previous results
+            const existingResult = document.querySelector('.scan-result');
+            if (existingResult) {
+                existingResult.remove();
+            }
+
+            resultDiv.classList.add('scan-result');
+            document.querySelector('.container-fluid').appendChild(resultDiv);
+        }
+    </script>
+}

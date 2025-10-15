@@ -1,0 +1,271 @@
+﻿@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+
+@{
+    var userId = HttpContextAccessor.HttpContext?.Session.GetString("UserId") ?? "Unknown";
+    var firstName = HttpContextAccessor.HttpContext?.Session.GetString("FirstName") ?? "Unknown";
+    var lastName = HttpContextAccessor.HttpContext?.Session.GetString("LastName") ?? "";
+    var role = HttpContextAccessor.HttpContext?.Session.GetString("Role") ?? "Guest";
+    var normalizedRole = role.ToLowerInvariant(); // 👈 Add this line
+
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>@ViewData["Title"] ?? "ForenSync"</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-..." crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #e0f4ff;
+            font-family: Arial, sans-serif;
+        }
+
+        .sidebar {
+            width: 220px;
+            height: 100vh;
+            background-color: #0c3b66;
+            color: white;
+            position: fixed;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .content {
+            margin-left: 240px;
+            padding: 2rem;
+        }
+
+        /* Match btn-primary to btn-collapse */
+        .btn-primary {
+            background-color: #1e4d7b;
+            border-color: #1e4d7b;
+            color: white;
+            font-weight: 500;
+        }
+
+            .btn-primary:hover,
+            .btn-primary:focus {
+                background-color: #2563a6;
+                border-color: #2563a6;
+                color: white;
+            }
+
+        .btn-collapse {
+            background-color: #1e4d7b;
+            color: white;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            transition: background-color 0.2s ease;
+        }
+
+            .btn-collapse:hover {
+                background-color: #2563a6;
+            }
+
+        .btn-admin-collapse {
+            background-color: #2d3b65; /* Blue-purple mix */
+            color: white;
+            font-weight: 600;
+            border: 2px solid #6c63ff;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            transition: all 0.3s ease;
+        }
+            /*
+            .btn-admin-collapse::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                transition: left 0.5s;
+            }
+
+            .btn-admin-collapse:hover::before {
+                left: 100%;
+                    }
+            */
+
+            .btn-admin-collapse:hover {
+                background-color: #354478;
+                border-color: #847bff;
+                box-shadow: 0 2px 8px rgba(108, 99, 255, 0.4);
+            }
+
+        .collapse-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .collapse.show + .btn-collapse .collapse-icon,
+        .btn-collapse[aria-expanded="true"] .collapse-icon {
+            transform: rotate(180deg);
+        }
+
+        .logout {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            width: calc(100% - 2rem);
+        }
+
+            .logout button {
+                background-color: #e63946;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 0.375rem;
+                padding: 0.5rem 1rem;
+                transition: background-color 0.2s ease;
+            }
+
+                .logout button:hover {
+                    background-color: #c53030;
+                }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="text-center mb-4">
+            <img src="~/images/logo.png"
+                 class="rounded-circle mb-2 border border-white"
+                 alt="User"
+                 width="80" height="80"
+                 style="object-fit: cover;" />
+            <div><strong>@firstName @lastName</strong></div>
+            <small>@role</small>
+        </div>
+
+        <nav class="nav flex-column">
+            <!-- Dashboard -->
+            <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Dashboard" asp-action="Index">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </a>
+
+            <!-- Case Management -->
+            <a class="btn btn-collapse mb-2 text-start w-100 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" href="#caseMenu" role="button" aria-expanded="false" aria-controls="caseMenu">
+                <span><i class="bi bi-folder2-open me-2"></i>Case Management</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </a>
+            <div class="collapse ps-3" id="caseMenu">
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Case" asp-action="CaseViewer">
+                    <i class="bi bi-eye me-2"></i>Case Viewer
+                </a>
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Case" asp-action="AcquisitionHistory">
+                    <i class="bi bi-clock-history me-2"></i>Acquisition History
+                </a>
+            </div>
+
+            <!-- Tools -->
+            <a class="btn btn-collapse mb-2 text-start w-100 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" href="#toolsMenu" role="button" aria-expanded="false" aria-controls="toolsMenu">
+                <span><i class="bi bi-tools me-2"></i>Tools</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </a>
+            <div class="collapse ps-3" id="toolsMenu">
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Tools" asp-action="AnomalyViewer">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Anomaly Viewer
+                </a>
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Tools" asp-action="MemoryPane">
+                    <i class="bi bi-memory me-2"></i>RAM Memory Pane
+                </a>
+            </div>
+
+            @if (normalizedRole == "admin")
+            {
+                <!-- Admin -->
+                <a class="btn btn-admin-collapse mb-2 text-start w-100 d-flex justify-content-between align-items-center"
+                   data-bs-toggle="collapse" href="#adminMenu" role="button" aria-expanded="false" aria-controls="adminMenu">
+                    <span><i class="bi bi-shield-check me-2"></i>Admin</span>
+                    <i class="bi bi-chevron-down collapse-icon"></i>
+                </a>
+
+                <div class="collapse ps-3" id="adminMenu">
+                    <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Admin" asp-action="ManageUsers">
+                        <i class="bi bi-people me-2"></i>Manage Users
+                    </a>
+                    <a class="btn btn-primary mb-2 text-start w-100" asp-controller="AdminSessionLogs" asp-action="SessionLogs">
+                        <i class="bi bi-list-check me-2"></i>Session Logs
+                    </a>
+                    <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Admin" asp-action="ExportLogs">
+                        <i class="bi bi-download me-2"></i>Export Logs
+                    </a>
+                    <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Admin" asp-action="ImportHistory">
+                        <i class="bi bi-upload me-2"></i>Import History
+                    </a>
+                </div>
+            }
+
+            <!-- Account -->
+            <a class="btn btn-collapse mb-2 text-start w-100 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" href="#accountMenu" role="button" aria-expanded="false" aria-controls="accountMenu">
+                <span><i class="bi bi-person-circle me-2"></i>Account</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </a>
+            <div class="collapse ps-3" id="accountMenu">
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Account" asp-action="EditProfile">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Profile
+                </a>
+                <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Account" asp-action="ChangePassword">
+                    <i class="bi bi-key me-2"></i>Change Password
+                </a>
+            </div>
+
+            <!-- Settings -->
+            <a class="btn btn-primary mb-2 text-start w-100" asp-controller="Settings" asp-action="Index">
+                <i class="bi bi-gear me-2"></i>Settings
+            </a>
+        </nav>
+
+        <div class="logout mt-4">
+            <form asp-controller="Login" asp-action="Logout" method="post">
+                <button type="submit" class="btn btn-danger w-100">
+                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SIDEBAR END -->
+
+
+    <!-- Page content -->
+    <div class="content">
+        @RenderBody()
+    </div>
+
+    @RenderSection("Scripts", required: false)
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const toggles = document.querySelectorAll('[data-bs-toggle="collapse"]');
+
+            toggles.forEach(toggle => {
+                toggle.addEventListener("click", function () {
+                    const targetId = this.getAttribute("href")?.replace("#", "") || this.getAttribute("data-bs-target")?.replace("#", "");
+                    const clickedMenu = document.getElementById(targetId);
+
+                    document.querySelectorAll(".collapse").forEach(menu => {
+                        if (menu !== clickedMenu && menu.classList.contains("show")) {
+                            bootstrap.Collapse.getInstance(menu)?.hide();
+                        }
+                    });
+
+                    bootstrap.Collapse.getOrCreateInstance(clickedMenu).toggle();
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,191 @@
+﻿@model IEnumerable<ForenSync_WebApp_New.Models.AcquisitionLogViewModel>
+@{
+    ViewData["Title"] = "Acquisition History";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Acquisition History</h2>
+        <!-- <button type="button" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> New Acquisition
+        </button>
+        -->
+    </div>
+
+    <!-- Search and Filter Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="searchTerm" class="form-control"
+                           placeholder="Search by case ID, type, tool, or output path..."
+                           value="@ViewBag.SearchTerm" />
+                </div>
+                <div class="col-md-3">
+                    <select name="filterType" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="Memory">Memory</option>
+                        <option value="Disk">Disk</option>
+                        <option value="Network">Network</option>
+                        <option value="Mobile">Mobile</option>
+                        <option value="Cloud">Cloud</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="@Url.Action("History")" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-clockwise"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Acquisition Logs Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Acquisition Logs</h5>
+        </div>
+        <div class="card-body">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Acquisition ID</th>
+                                <th>Case ID</th>
+                                <th>Type</th>
+                                <th>Tool</th>
+                                <th>Output Path</th>
+                                <th>Hash</th>
+                                <th>Created At</th>
+                                <th>Entry Hash</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in Model)
+                            {
+                                <tr>
+                                    <td>@log.AcquisitionId</td>
+                                    <td>
+                                        <span class="badge bg-primary">@log.CaseId</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                                    @(log.Type?.ToLower() == "memory" ? "bg-danger" :
+                                                                                            log.Type?.ToLower() == "disk" ? "bg-success" :
+                                                                                            log.Type?.ToLower() == "network" ? "bg-warning" :
+                                                                                            log.Type?.ToLower() == "mobile" ? "bg-info" :
+                                                                                            log.Type?.ToLower() == "cloud" ? "bg-secondary" : "bg-dark")">
+                                    @log.Type
+                                </span>
+                            </td>
+                            <td>@log.Tool</td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 200px;" title="@log.OutputPath">
+                                    @log.OutputPath
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 120px;" title="@log.Hash">
+                                    @log.Hash
+                                </span>
+                            </td>
+                            <td>@log.CreatedAt</td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 120px;" title="@log.EntryHash">
+                                    @log.EntryHash
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <i class="bi bi-eye"></i> View
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" title="Verify Hash">
+                                    <i class="bi bi-shield-check"></i> Verify
+                                </button>
+                            </td>
+                        </tr>
+                                                }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> No acquisition logs found.
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set the selected filter type
+            const filterType = '@ViewBag.FilterType';
+            if (filterType) {
+                document.querySelector('select[name="filterType"]').value = filterType;
+            }
+
+            // Add row hover effects
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                row.addEventListener('click', function() {
+                    rows.forEach(r => r.classList.remove('table-active'));
+                    this.classList.add('table-active');
+                });
+            });
+
+            // Show acquisition count
+            const acquisitionCount = @Model.Count();
+            if (acquisitionCount > 0) {
+                const searchInfo = document.createElement('div');
+                searchInfo.className = 'text-muted mt-2';
+                searchInfo.innerHTML = `<i class="bi bi-info-circle"></i> Found ${acquisitionCount} acquisition(s)`;
+                document.querySelector('.card-header').appendChild(searchInfo);
+            }
+
+            // Tooltip for truncated text
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+
+    <style>
+        .table th {
+            font-weight: 600;
+            background-color: #343a40;
+            color: white;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.1);
+            cursor: pointer;
+        }
+
+        .table-active {
+            background-color: rgba(0, 123, 255, 0.2) !important;
+        }
+
+        .badge {
+            font-size: 0.75em;
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+}
