@@ -16,6 +16,12 @@ namespace ForenSync_WebApp_New.Controllers
         private readonly ForenSyncDbContext _context;
         private readonly IWebHostEnvironment _environment;
 
+        public SettingsController(ForenSyncDbContext context, IWebHostEnvironment environment)
+        {
+            _context = context;
+            _environment = environment;
+        }
+
         // Helper method to safely get string from database reader
         private string GetSafeString(object value)
         {
@@ -52,15 +58,15 @@ namespace ForenSync_WebApp_New.Controllers
             }
         }
 
-        public SettingsController(ForenSyncDbContext context, IWebHostEnvironment environment)
-        {
-            _context = context;
-            _environment = environment;
-        }
-
         public IActionResult Index()
         {
-            return View();
+            // Get recent imports for the view
+            var recentImports = _context.import_to_main_logs
+                .OrderByDescending(i => i.import_timestamp)
+                .Take(10)
+                .ToList();
+
+            return View(recentImports);
         }
 
         // Add these methods to your SettingsController class:
@@ -137,7 +143,7 @@ namespace ForenSync_WebApp_New.Controllers
             int auditTrailsImported = 0;
             List<string> importedCaseIds = new List<string>();
             string status = "SUCCESS";
-            string errorMessage = null;
+            string errorMessage = "N/A";
 
             try
             {

@@ -3,6 +3,9 @@
     ViewData["Title"] = "Settings";
 }
 
+@using ForenSync_WebApp_New.Models
+@model List<import_to_main_logs>
+
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -90,19 +93,104 @@
         </div>
     </div>
 
-    <!-- Recent Imports Card (Optional) -->
+    <!-- Recent Imports Card -->
     <div class="card">
-        <div class="card-header">
-            <h6 class="card-title mb-0">Recent Imports</h6>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-clock-history"></i> Recent Imports
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshImports()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
         </div>
         <div class="card-body">
-            <p class="text-muted mb-0">No recent imports. Select a volume above to begin.</p>
+            @if (Model != null && Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Cases</th>
+                                <th>Acquisitions</th>
+                                <th>Audit Trails</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var import in Model.OrderByDescending(i => i.import_timestamp).Take(10))
+                            {
+                                <tr class="@(import.status == "SUCCESS" ? "table-success" : "table-danger")">
+                                    <td>
+                                        <small class="text-muted">@import.import_timestamp</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(import.status == "SUCCESS" ? "bg-success" : "bg-danger")">
+                                            @import.status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold @(import.case_logs_imported > 0 ? "text-success" : "text-muted")">
+                                            @import.case_logs_imported
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold @(import.acquisition_logs_imported > 0 ? "text-primary" : "text-muted")">
+                                            @import.acquisition_logs_imported
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold @(import.audit_trails_imported > 0 ? "text-info" : "text-muted")">
+                                            @import.audit_trails_imported
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                onclick="showImportDetails('@import.import_id', '@import.import_timestamp', @import.case_logs_imported, @import.acquisition_logs_imported, @import.audit_trails_imported, '@import.imported_case_ids', '@import.status', '@import.error_message')">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-2 text-center">
+                    <small class="text-muted">Showing latest 10 imports</small>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox display-4 text-muted"></i>
+                    <p class="text-muted mt-2 mb-0">No imports yet. Start by importing data from a volume above.</p>
+                </div>
+            }
         </div>
     </div>
 </div>
 
 <!-- Hidden file input for folder selection -->
 <input type="file" id="folderPicker" webkitdirectory directory multiple style="display: none;" />
+
+<!-- Import Details Modal -->
+<div class="modal fade" id="importDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="importDetailsContent">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>
@@ -111,38 +199,18 @@
         }
 
         function browseForVolume() {
-            // This will only work in some browsers for folder selection
             document.getElementById('folderPicker').click();
         }
 
         document.getElementById('folderPicker').addEventListener('change', function(e) {
             if (e.target.files.length > 0) {
-                // Get the folder path from the first file
                 const filePath = e.target.files[0].webkitRelativePath || e.target.files[0].name;
                 const folderPath = filePath.split('/')[0];
                 document.getElementById('volumePath').value = folderPath;
             }
         });
 
-        // Form submission feedback
-        document.getElementById('volumeForm').addEventListener('submit', function(e) {
-            const volumePath = document.getElementById('volumePath').value;
-            if (!volumePath) {
-                e.preventDefault();
-                alert('Please select or enter a volume path.');
-                return;
-            }
-
-            // Show loading state
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Scanning Volume...';
-            submitBtn.disabled = true;
-        });
-
-
-        //////////////////////////////////////////////////////
-
-                // Form submission - handle JSON response
+        // Form submission - handle JSON response
         document.getElementById('volumeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -167,22 +235,23 @@
                 });
 
                 const result = await response.json();
-
-                // Display JSON result in a nice format
                 displayScanResult(result);
+
+                // Refresh the imports list after successful import
+                if (result.success) {
+                    setTimeout(refreshImports, 1000);
+                }
 
             } catch (error) {
                 console.error('Scan failed:', error);
                 alert('Scan failed: ' + error.message);
             } finally {
-                // Reset button
                 submitBtn.innerHTML = '<i class="bi bi-download"></i> Import from Selected Volume';
                 submitBtn.disabled = false;
             }
         });
 
-                function displayScanResult(result) {
-            // Create a modal or display area for the JSON result
+        function displayScanResult(result) {
             const resultDiv = document.createElement('div');
             resultDiv.className = 'card mt-4';
             resultDiv.innerHTML = `
@@ -211,7 +280,6 @@
                 </div>
             `;
 
-            // Remove previous results
             const existingResult = document.querySelector('.scan-result');
             if (existingResult) {
                 existingResult.remove();
@@ -219,6 +287,72 @@
 
             resultDiv.classList.add('scan-result');
             document.querySelector('.container-fluid').appendChild(resultDiv);
+        }
+
+        function refreshImports() {
+            location.reload();
+        }
+
+        function showImportDetails(importId, timestamp, cases, acquisitions, audits, caseIds, status, error) {
+            let caseIdsArray = [];
+            try {
+                caseIdsArray = JSON.parse(caseIds);
+            } catch (e) {
+                caseIdsArray = [caseIds];
+            }
+
+            const detailsHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Import ID:</strong><br>
+                        <code class="small">${importId}</code>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Timestamp:</strong><br>
+                        ${timestamp}
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="border rounded p-3 ${cases > 0 ? 'bg-success bg-opacity-10' : ''}">
+                            <h4 class="${cases > 0 ? 'text-success' : 'text-muted'}">${cases}</h4>
+                            <small>Case Logs</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="border rounded p-3 ${acquisitions > 0 ? 'bg-primary bg-opacity-10' : ''}">
+                            <h4 class="${acquisitions > 0 ? 'text-primary' : 'text-muted'}">${acquisitions}</h4>
+                            <small>Acquisitions</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="border rounded p-3 ${audits > 0 ? 'bg-info bg-opacity-10' : ''}">
+                            <h4 class="${audits > 0 ? 'text-info' : 'text-muted'}">${audits}</h4>
+                            <small>Audit Trails</small>
+                        </div>
+                    </div>
+                </div>
+                ${caseIdsArray.length > 0 ? `
+                    <hr>
+                    <div>
+                        <strong>Imported Case IDs:</strong>
+                        <div class="mt-2">
+                            ${caseIdsArray.map(id => `<span class="badge bg-secondary me-1">${id}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${error && error !== 'null' ? `
+                    <hr>
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong><br>
+                        ${error}
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('importDetailsContent').innerHTML = detailsHtml;
+            new bootstrap.Modal(document.getElementById('importDetailsModal')).show();
         }
     </script>
 }
