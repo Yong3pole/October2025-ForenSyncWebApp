@@ -1,9 +1,11 @@
 ﻿using ForenSync_WebApp_New.Data;
 using ForenSync_WebApp_New.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ForenSync_WebApp_New.Controllers
 {
+    [Authorize]  // ← Anyone who is logged in
     public class CaseController : Controller
     {
         private readonly ForenSyncDbContext _context;

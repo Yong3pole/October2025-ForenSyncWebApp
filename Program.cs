@@ -1,4 +1,5 @@
 using ForenSync_WebApp_New.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,16 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+
+// Add authentication
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Login";
+        options.AccessDeniedPath = "/Login";
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    });
+
 builder.Services.AddHttpContextAccessor(); // 👈 Add this line
 builder.Services.AddHttpClient();
 builder.Services.AddMvc();
@@ -24,6 +35,7 @@ var app = builder.Build();
 app.UseStaticFiles();   
 app.UseRouting();
 app.UseSession();
+app.UseAuthentication();  // ← This enables [Authorize]
 app.UseStaticFiles();
 app.UseAuthorization();
 

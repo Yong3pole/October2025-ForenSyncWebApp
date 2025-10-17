@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
 namespace ForenSync_WebApp_New.Controllers
 {
+    [Authorize]  // ← Anyone who is logged in
     public class DashboardController : Controller
     {
         [HttpGet]

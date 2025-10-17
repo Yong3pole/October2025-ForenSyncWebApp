@@ -1,5 +1,6 @@
 ﻿using ForenSync_WebApp_New.Data;
 using ForenSync_WebApp_New.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using System.Text.Json;
 
 namespace ForenSync_WebApp_New.Controllers
 {
+    [Authorize]  // ← Anyone who is logged in
     public class SettingsController : Controller
     {
         private readonly ForenSyncDbContext _context;

@@ -1,15 +1,17 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
 using System.Net.Http.Json; // Add this for PostAsJsonAsync
+using System.Text;
 
 
 namespace YourProjectName.Controllers
 {
+    [Authorize]  // ← Anyone who is logged in
     public class ToolsController : Controller
     {
         // Existing MemoryPane action

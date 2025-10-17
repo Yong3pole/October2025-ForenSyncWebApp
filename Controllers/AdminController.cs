@@ -1,5 +1,6 @@
 ﻿using ForenSync_WebApp_New.Data;
 using ForenSync_WebApp_New.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
@@ -7,6 +8,7 @@ using System.Linq;
 
 namespace ForenSync_WebApp_New.Controllers
 {
+    [Authorize(Roles = "admin")]  // ← Only admin role
     public class AdminController : Controller
     {
         private readonly ForenSyncDbContext _context;
@@ -331,8 +333,6 @@ namespace ForenSync_WebApp_New.Controllers
                 return View(model);
             }
         }
-
-        
 
     }
 }

@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
-using System.Linq;
-using ForenSync_WebApp_New.Data;
+﻿using ForenSync_WebApp_New.Data;
 using ForenSync_WebApp_New.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace ForenSync_WebApp_New.Controllers
 {
+    [Authorize]  // ← Anyone who is logged in
     public class AccountController : Controller
     {
         private readonly ForenSyncDbContext _context;
