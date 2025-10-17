@@ -82,32 +82,6 @@ namespace ForenSync_WebApp_New.Controllers
             }
         }
 
-        
-
-        private async Task CopyDirectoryAsync(string sourceDir, string targetDir)
-        {
-            // Create target directory
-            Directory.CreateDirectory(targetDir);
-
-            // Copy all files
-            foreach (string file in Directory.GetFiles(sourceDir))
-            {
-                string targetFile = Path.Combine(targetDir, Path.GetFileName(file));
-                using (var sourceStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
-                using (var targetStream = new FileStream(targetFile, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
-                {
-                    await sourceStream.CopyToAsync(targetStream);
-                }
-            }
-
-            // Recursively copy subdirectories
-            foreach (string directory in Directory.GetDirectories(sourceDir))
-            {
-                string targetSubDir = Path.Combine(targetDir, Path.GetFileName(directory));
-                await CopyDirectoryAsync(directory, targetSubDir);
-            }
-        }
-
         [HttpPost]
         public async Task<IActionResult> SelectVolume(string volumePath)
         {
@@ -148,10 +122,22 @@ namespace ForenSync_WebApp_New.Controllers
         private async Task<object> PerformActualImport(string sourceDbPath, string volumePath)
         {
             var messages = new List<string>
-    {
-        $"Starting import from: {sourceDbPath}",
-        $"Volume: {volumePath}"
-    };
+                {
+                    $"Starting import from: {sourceDbPath}",
+                    $"Volume: {volumePath}"
+                };
+
+            // Generate import ID and timestamp
+            string importId = Guid.NewGuid().ToString();
+            string importTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            // Initialize counters
+            int caseLogsImported = 0;
+            int acquisitionLogsImported = 0;
+            int auditTrailsImported = 0;
+            List<string> importedCaseIds = new List<string>();
+            string status = "SUCCESS";
+            string errorMessage = null;
 
             try
             {
@@ -164,19 +150,26 @@ namespace ForenSync_WebApp_New.Controllers
 
                     // Import case_logs
                     var caseLogsResult = await ImportCaseLogs(sourceConnection);
-                    messages.Add($"Imported {caseLogsResult.ImportedCount} case log(s)");
+                    caseLogsImported = caseLogsResult.ImportedCount;
+                    importedCaseIds = caseLogsResult.ImportedCaseIds;
+                    messages.Add($"Imported {caseLogsImported} case log(s)");
 
                     // Import acquisition_log
                     var acquisitionLogsResult = await ImportAcquisitionLogs(sourceConnection);
-                    messages.Add($"Imported {acquisitionLogsResult.ImportedCount} acquisition log(s)");
+                    acquisitionLogsImported = acquisitionLogsResult.ImportedCount;
+                    messages.Add($"Imported {acquisitionLogsImported} acquisition log(s)");
 
                     // Import audit_trail
                     var auditTrailsResult = await ImportAuditTrails(sourceConnection);
-                    messages.Add($"Imported {auditTrailsResult.ImportedCount} audit trail(s)");
+                    auditTrailsImported = auditTrailsResult.ImportedCount;
+                    messages.Add($"Imported {auditTrailsImported} audit trail(s)");
 
-                    // Copy case folders for imported cases
-                    var copyResult = await CopyCaseFolders(volumePath, caseLogsResult.ImportedCaseIds);
-                    messages.Add($"Copied {copyResult.CopiedCount} case folder(s)");
+                    // SKIPPED: Copy case folders - only importing logs
+                    messages.Add($"Skipped copying case folders (log import only)");
+
+                    // Log successful import to database
+                    await LogImportToDatabase(importId, importTimestamp, caseLogsImported,
+                        acquisitionLogsImported, auditTrailsImported, importedCaseIds, status, errorMessage);
 
                     // Build final result
                     return new
@@ -189,8 +182,8 @@ namespace ForenSync_WebApp_New.Controllers
                             caseLogsImported = caseLogsResult.ImportedCount,
                             acquisitionLogsImported = acquisitionLogsResult.ImportedCount,
                             auditTrailsImported = auditTrailsResult.ImportedCount,
-                            caseFoldersCopied = copyResult.CopiedCount,
-                            caseIdsCopied = copyResult.CopiedCaseIds
+                            caseFoldersCopied = 0, // Now always 0
+                            caseIdsCopied = new List<string>() // Empty list
                         },
                         messages = messages
                     };
@@ -198,7 +191,16 @@ namespace ForenSync_WebApp_New.Controllers
             }
             catch (Exception ex)
             {
+                // Update status for error case
+                status = "FAILED";
+                errorMessage = ex.Message;
+
                 messages.Add($"Import error: {ex.Message}");
+
+                // Log failed import to database
+                await LogImportToDatabase(importId, importTimestamp, caseLogsImported,
+                    acquisitionLogsImported, auditTrailsImported, importedCaseIds, status, errorMessage);
+
                 return new
                 {
                     success = false,
@@ -209,6 +211,7 @@ namespace ForenSync_WebApp_New.Controllers
             }
         }
 
+        // IMPORT CASE LOGS , ACQUISITION LOGS, AUDIT TRAILS //
         private async Task<ImportResult> ImportCaseLogs(SqliteConnection sourceConnection)
         {
             var result = new ImportResult();
@@ -267,7 +270,6 @@ namespace ForenSync_WebApp_New.Controllers
 
             return result;
         }
-
         private async Task<ImportResult> ImportAcquisitionLogs(SqliteConnection sourceConnection)
         {
             var result = new ImportResult();
@@ -402,122 +404,37 @@ namespace ForenSync_WebApp_New.Controllers
             return result;
         }
 
-        private async Task<CopyProgress> CopyDirectoryWithProgressAsync(string sourceDir, string targetDir, string caseId, int currentFolder, int totalFolders)
+        // Add this method to log to import_to_main_logs table
+        private async Task LogImportToDatabase(string importId, string importTimestamp,
+            int caseLogsImported, int acquisitionLogsImported, int auditTrailsImported,
+            List<string> importedCaseIds, string status, string errorMessage)
         {
-            var progress = new CopyProgress();
-
-            // Create target directory
-            Directory.CreateDirectory(targetDir);
-
-            // Get all files first to calculate total
-            var allFiles = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
-            progress.TotalFiles = allFiles.Length;
-
-            int currentFile = 0;
-
-            foreach (string file in allFiles)
+            try
             {
-                currentFile++;
-                string relativePath = file.Substring(sourceDir.Length + 1);
-                string targetFile = Path.Combine(targetDir, relativePath);
+                // Convert importedCaseIds list to JSON string
+                string importedCaseIdsJson = JsonSerializer.Serialize(importedCaseIds);
 
-                // Create directory structure if needed
-                string targetFileDir = Path.GetDirectoryName(targetFile);
-                if (!Directory.Exists(targetFileDir))
+                var importLog = new import_to_main_logs
                 {
-                    Directory.CreateDirectory(targetFileDir);
-                }
+                    import_id = importId,
+                    import_timestamp = importTimestamp,
+                    case_logs_imported = caseLogsImported,
+                    acquisition_logs_imported = acquisitionLogsImported,
+                    audit_trails_imported = auditTrailsImported,
+                    imported_case_ids = importedCaseIdsJson, // Store as JSON string
+                    status = status,
+                    error_message = errorMessage
+                };
 
-                try
-                {
-                    // Try to copy with file sharing enabled
-                    using (var sourceStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
-                    using (var targetStream = new FileStream(targetFile, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
-                    {
-                        await sourceStream.CopyToAsync(targetStream);
-                    }
-
-                    progress.FilesCopied++;
-
-                    // Log progress every 10 files or for large operations
-                    if (currentFile % 10 == 0 || currentFile == progress.TotalFiles)
-                    {
-                        Console.WriteLine($"Progress: Case {currentFolder}/{totalFolders} - {caseId} - File {currentFile}/{progress.TotalFiles} - {Path.GetFileName(file)}");
-                    }
-                }
-                catch (IOException ioEx) when (ioEx.Message.Contains("being used by another process"))
-                {
-                    // Skip locked files
-                    Console.WriteLine($"Skipping locked file: {file}");
-                    progress.SkippedFiles++;
-                    continue;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error copying file {file}: {ex.Message}");
-                    progress.Errors++;
-                    continue;
-                }
+                _context.import_to_main_logs.Add(importLog);
+                await _context.SaveChangesAsync();
             }
-
-            // Recursively handle subdirectories (already handled by SearchOption.AllDirectories)
-            return progress;
+            catch (Exception ex)
+            {
+                // Log the error but don't break the main import process
+                Console.WriteLine($"Failed to log import to database: {ex.Message}");
+            }
         }
-        private async Task<CopyResult> CopyCaseFolders(string volumePath, List<string> caseIds)
-        {
-            var result = new CopyResult();
-            string sourceCasesPath = Path.Combine(volumePath, "Cases");
-            string targetCasesPath = Path.Combine(_environment.WebRootPath, "Cases");
-
-            // Create target Cases directory if it doesn't exist
-            if (!Directory.Exists(targetCasesPath))
-            {
-                Directory.CreateDirectory(targetCasesPath);
-            }
-
-            // Progress tracking
-            int totalFolders = caseIds.Count;
-            int currentFolder = 0;
-
-            foreach (string caseId in caseIds)
-            {
-                currentFolder++;
-                try
-                {
-                    string sourceCasePath = Path.Combine(sourceCasesPath, caseId);
-                    string targetCasePath = Path.Combine(targetCasesPath, caseId);
-
-                    // Skip if source doesn't exist or target already exists
-                    if (!Directory.Exists(sourceCasePath))
-                    {
-                        Console.WriteLine($"Source case folder not found: {sourceCasePath}");
-                        continue;
-                    }
-
-                    if (Directory.Exists(targetCasePath))
-                    {
-                        Console.WriteLine($"Target case folder already exists, skipping: {targetCasePath}");
-                        continue;
-                    }
-
-                    // Copy the entire case folder with progress
-                    var copyProgress = await CopyDirectoryWithProgressAsync(sourceCasePath, targetCasePath, caseId, currentFolder, totalFolders);
-
-                    result.CopiedCount++;
-                    result.CopiedCaseIds.Add(caseId);
-
-                    Console.WriteLine($"Successfully copied case folder: {caseId} ({copyProgress.FilesCopied} files)");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error copying case folder {caseId}: {ex.Message}");
-                }
-            }
-
-            return result;
-        }
-
-
 
         // Update the helper classes
         public class ImportResult
@@ -525,15 +442,5 @@ namespace ForenSync_WebApp_New.Controllers
             public int ImportedCount { get; set; }
             public List<string> ImportedCaseIds { get; set; } = new List<string>();
         }
-
-        public class CopyResult
-        {
-            public int CopiedCount { get; set; }
-            public List<string> CopiedCaseIds { get; set; } = new List<string>();
-        }
-
-
-
-
     }
 }

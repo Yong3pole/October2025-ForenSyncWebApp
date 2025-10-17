@@ -1,11 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ForenSync_WebApp_New.Models
 {
-    public class ImportToMainLog
+    public class import_to_main_logs
     {
         [Key]
-        public int import_id { get; set; }
+        public string import_id { get; set; }
         public string import_timestamp { get; set; }
         public int case_logs_imported { get; set; }
         public int acquisition_logs_imported { get; set; }

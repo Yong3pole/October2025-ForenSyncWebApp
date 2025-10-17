@@ -73,18 +73,15 @@
                             <h6><i class="bi bi-info-circle"></i> How it works:</h6>
                             <ul class="small">
                                 <li>Select the drive containing your forensic toolkit</li>
-                                <li>The system will scan for case databases and logs</li>
-                                <li>Cases will be imported into your local database</li>
-                                <li>Acquisition history will be preserved</li>
+                                <li>The system will import case logs and acquisition history</li>
+                                <li>Database records will be imported into your local system</li>
+                                <li>Audit trails and case history will be preserved</li>
                             </ul>
 
-                            <h6 class="mt-3">Expected folder structure:</h6>
+                            <h6 class="mt-3">Required file:</h6>
                             <code class="small">
                                 ToolkitDrive/<br />
-                                ├── Cases/<br />
-                                │   ├── CASE_20251013_104653/<br />
-                                │   └── CASE_20251013_115132/<br />
-                                └── Database.db
+                                └── forensync.db
                             </code>
                         </div>
                     </div>
@@ -184,37 +181,27 @@
             }
         });
 
-        function displayScanResult(result) {
+                function displayScanResult(result) {
             // Create a modal or display area for the JSON result
             const resultDiv = document.createElement('div');
             resultDiv.className = 'card mt-4';
             resultDiv.innerHTML = `
                 <div class="card-header">
                     <h6 class="card-title mb-0">
-                        <i class="bi bi-clipboard-data"></i> Scan Results
+                        <i class="bi bi-clipboard-data"></i> Import Results
                     </h6>
                 </div>
                 <div class="card-body">
                     <pre class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">${JSON.stringify(result, null, 2)}</pre>
                             ${result.success ?
-                                (result.importSummary.caseFoldersCopied > 0 && result.importSummary.caseLogsImported > 0 ?
+                                (result.importSummary.caseLogsImported > 0 || result.importSummary.acquisitionLogsImported > 0 || result.importSummary.auditTrailsImported > 0 ?
                                     `<div class="alert alert-success mt-3">
-                                        <strong>🎉 Complete Import Success!</strong>
-                                        All data imported successfully including case folders.
+                                        <strong>✅ Import Complete!</strong>
+                                        Successfully imported database logs and records.
                                     </div>` :
-                                result.importSummary.caseLogsImported > 0 && result.importSummary.caseFoldersCopied === 0 ?
-                                    `<div class="alert alert-warning mt-3">
-                                        <strong>⚠️ Partial Import</strong>
-                                        Database records imported but case folders may already exist or be in use.
-                                    </div>` :
-                                result.importSummary.caseLogsImported === 0 && result.importSummary.acquisitionLogsImported === 0 ?
                                     `<div class="alert alert-info mt-3">
                                         <strong>ℹ️ No New Data</strong>
                                         All data already exists in the system - no new imports needed.
-                                    </div>` :
-                                    `<div class="alert alert-success mt-3">
-                                        <strong>✅ Import Complete</strong>
-                                        Data processing finished successfully.
                                     </div>`
                                 ) :
                                 `<div class="alert alert-danger mt-3">

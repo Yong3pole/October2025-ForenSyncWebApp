@@ -18,6 +18,8 @@ namespace ForenSync_WebApp_New.Data
 
         public DbSet<ImportLog> ImportLog { get; set; }
 
+        public DbSet<import_to_main_logs> import_to_main_logs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<users_tbl>().ToTable("users_tbl");
