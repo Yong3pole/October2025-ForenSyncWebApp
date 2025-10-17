@@ -122,8 +122,8 @@
                 const file = csvFileInput.files[0];
 
                 // Try to get full path (may be empty due to browser security)
-                    const fullPath = csvFileInput.value;
-                    console.log('Full path:', fullPath); // This might show the full path
+                const fullPath = csvFileInput.value;
+                console.log('Full path:', fullPath);
 
                 // Show loading state
                 analyzeBtn.disabled = true;
@@ -140,8 +140,21 @@
 
                     const result = await response.json();
 
-                    // Display the JSON response
-                    responseContent.textContent = JSON.stringify(result, null, 2);
+                    // ✅ ENHANCED DISPLAY - MOVED INSIDE THE CLICK HANDLER
+                    if (result.ai_insights) {
+                        responseContent.innerHTML = `
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-robot me-2"></i>AI Analysis</h6>
+                                <p>${result.ai_insights}</p>
+                            </div>
+                            <hr>
+                            <h6>Full Analysis Results:</h6>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        `;
+                    } else {
+                        responseContent.textContent = JSON.stringify(result, null, 2);
+                    }
+
                     jsonResponse.style.display = 'block';
 
                 } catch (error) {

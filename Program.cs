@@ -13,6 +13,7 @@ builder.Services.AddSession(options =>
 });
 
 builder.Services.AddHttpContextAccessor(); // 👈 Add this line
+builder.Services.AddHttpClient();
 builder.Services.AddMvc();
 
 builder.Services.AddDbContext<ForenSyncDbContext>(options =>
