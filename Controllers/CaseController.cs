@@ -15,16 +15,12 @@ namespace ForenSync_WebApp_New.Controllers
             _context = context;
         }
 
-        public IActionResult CaseViewer(string searchTerm, DateTime? filterDate)
+        public IActionResult CaseViewer(string searchTerm, DateTime? startDate, DateTime? endDate)
         {
             var query = _context.case_logs.AsQueryable();
 
-            if (filterDate.HasValue)
-            {
-                query = query.Where(c => c.date.Date == filterDate.Value.Date);
-            }
-
-            if (!string.IsNullOrWhiteSpace(searchTerm))
+            // Search filter
+            if (!string.IsNullOrEmpty(searchTerm))
             {
                 query = query.Where(c =>
                     c.department.Contains(searchTerm) ||
@@ -33,13 +29,23 @@ namespace ForenSync_WebApp_New.Controllers
                     c.case_path.Contains(searchTerm));
             }
 
-            var results = query.OrderByDescending(c => c.date).ToList();
-            return View(results);
+            // Date range filter
+            if (startDate.HasValue)
+            {
+                query = query.Where(c => c.date >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                query = query.Where(c => c.date <= endDate.Value);
+            }
+
+            var cases = query.OrderByDescending(c => c.date).ToList();
+            return View(cases);
         }
 
 
-        // GET: /Case/History
-        public IActionResult AcquisitionHistory(string searchTerm, string filterType)
+        // GET: /Case/AcquisitionHistory
+        public IActionResult AcquisitionHistory(string searchTerm, string filterType, DateTime? startDate, DateTime? endDate)
         {
             var acquisitionLogs = _context.acquisition_log.AsQueryable();
 
@@ -48,32 +54,42 @@ namespace ForenSync_WebApp_New.Controllers
             {
                 acquisitionLogs = acquisitionLogs.Where(a =>
                     a.case_id.Contains(searchTerm) ||
+                    a.acquisition_id.Contains(searchTerm) ||
                     a.type.Contains(searchTerm) ||
-                    a.tool.Contains(searchTerm) ||
-                    a.output_path.Contains(searchTerm));
+                    a.tool.Contains(searchTerm));
             }
 
             // Apply type filter if provided
             if (!string.IsNullOrEmpty(filterType))
             {
-                acquisitionLogs = acquisitionLogs.Where(a => a.type == filterType);
+                acquisitionLogs = acquisitionLogs.Where(a => a.type.ToLower() == filterType.ToLower());
             }
 
-            // Map to ViewModel - fix the CreatedAt mapping for non-nullable DateTime
-            var viewModels = acquisitionLogs.Select(a => new AcquisitionLogViewModel
+            // Apply date range filter if provided
+            if (startDate.HasValue)
             {
-                AcquisitionId = a.acquisition_id,
-                CaseId = a.case_id ?? "N/A",
-                Type = a.type ?? "Not set",
-                Tool = a.tool ?? "Not set",
-                OutputPath = a.output_path ?? "Not set",
-                Hash = a.hash ?? "Not set",
-                CreatedAt = a.created_at.ToString("yyyy-MM-dd HH:mm:ss"), // Simple ToString for non-nullable DateTime
-                EntryHash = a.entry_hash ?? "Not set"
-            }).ToList();
+                acquisitionLogs = acquisitionLogs.Where(a => a.created_at >= startDate.Value);
+            }
 
-            ViewBag.SearchTerm = searchTerm;
-            ViewBag.FilterType = filterType;
+            if (endDate.HasValue)
+            {
+                // Add one day to include the entire end date
+                var endDateInclusive = endDate.Value.AddDays(1);
+                acquisitionLogs = acquisitionLogs.Where(a => a.created_at < endDateInclusive);
+            }
+
+            // Map to ViewModel - simplified for the view (removed OutputPath, Hash, EntryHash)
+            var viewModels = acquisitionLogs
+                .OrderByDescending(a => a.created_at)
+                .Select(a => new AcquisitionLogViewModel
+                {
+                    AcquisitionId = a.acquisition_id,
+                    CaseId = a.case_id ?? "N/A",
+                    Type = a.type ?? "Not set",
+                    Tool = a.tool ?? "Not set",
+                    CreatedAt = a.created_at.ToString("yyyy-MM-dd HH:mm") // Simplified format
+                }).ToList();
+
             return View(viewModels);
         }
 

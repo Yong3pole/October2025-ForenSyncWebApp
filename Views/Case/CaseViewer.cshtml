@@ -1,4 +1,5 @@
 ﻿@model List<ForenSync_WebApp_New.Models.case_log>
+@using Microsoft.AspNetCore.Html
 @{
     ViewData["Title"] = "Case Viewer";
 }
@@ -13,34 +14,86 @@
         </form>
     </div>
 
-    <!-- Search and Filter Card -->
+    <!-- Enhanced Search and Filter Card -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-5">
-                    <input type="text" name="searchTerm" class="form-control" placeholder="Search by department, user ID, notes, or case path..." />
+            <form method="get" id="filterForm" class="row g-3">
+                <!-- Search Input -->
+                <div class="col-md-4">
+                    <label class="form-label">Search Cases</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control"
+                               placeholder="Search by department, user ID, notes, or case path..."
+                               value="@Context.Request.Query["searchTerm"].ToString()" />
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <input type="date" name="filterDate" class="form-control" />
+
+                <!-- Date Range Filter -->
+                <div class="col-md-4">
+                    <label class="form-label">Date Range</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-calendar"></i></span>
+                        <input type="date" name="startDate" class="form-control"
+                               value="@Context.Request.Query["startDate"].ToString()"
+                               placeholder="From date" />
+                        <span class="input-group-text">to</span>
+                        <input type="date" name="endDate" class="form-control"
+                               value="@Context.Request.Query["endDate"].ToString()"
+                               placeholder="To date" />
+                    </div>
                 </div>
+
+                <!-- Quick Date Filters -->
                 <div class="col-md-2">
+                    <label class="form-label">Quick Filters</label>
+                    <select name="datePreset" class="form-select" onchange="applyDatePreset(this.value)">
+                        <option value="">Custom Range</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="thisWeek">This Week</option>
+                        <option value="lastWeek">Last Week</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="col-md-2 d-flex align-items-end gap-2">
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filter
+                        <i class="bi bi-funnel"></i> Apply
                     </button>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-download"></i> Import
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">
+                        <i class="bi bi-arrow-clockwise"></i>
                     </button>
                 </div>
             </form>
+
+            <!-- Active Filters Display -->
+            @if (HasActiveFilters())
+            {
+                <div class="mt-3 p-3 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            Active Filters:
+                            @RenderActiveFilters()
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i> Clear All
+                        </button>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 
     <!-- Cases Table -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">Case List</h5>
+            <div class="text-muted">
+                <i class="bi bi-info-circle"></i> Showing @Model.Count case(s)
+            </div>
         </div>
         <div class="card-body">
             @if (Model.Any())
@@ -54,7 +107,6 @@
                                 <th>User ID</th>
                                 <th>Notes</th>
                                 <th>Date</th>
-                                <th>Case Path</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -69,13 +121,12 @@
                                     <td>@log.user_id</td>
                                     <td>
                                         <span class="text-truncate" style="max-width: 200px;" title="@log.notes">
-                                            @log.notes
+                                            @(string.IsNullOrEmpty(log.notes) ? "No notes" : log.notes)
                                         </span>
                                     </td>
-                                    <td>@log.date.ToString("MM/dd/yyyy")</td>
                                     <td>
-                                        <span class="text-truncate d-inline-block" style="max-width: 150px;" title="@log.case_path">
-                                            @log.case_path
+                                        <span class="badge bg-secondary">
+                                            @log.date.ToString("MM/dd/yyyy")
                                         </span>
                                     </td>
                                     <td>
@@ -91,8 +142,16 @@
             }
             else
             {
-                <div class="alert alert-info text-center">
-                    <i class="bi bi-info-circle"></i> No cases found.
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    @if (HasActiveFilters())
+                    {
+                        <text>No cases found matching your filters. <a href="javascript:void(0)" onclick="clearFilters()">Clear filters</a> to see all cases.</text>
+                    }
+                    else
+                    {
+                        <text>No cases found. Import cases from your toolkit to get started.</text>
+                    }
                 </div>
             }
         </div>
@@ -102,7 +161,13 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Add row hover effects
+            // Initialize tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Row selection
             const rows = document.querySelectorAll('tbody tr');
             rows.forEach(row => {
                 row.addEventListener('click', function() {
@@ -111,21 +176,80 @@
                 });
             });
 
-            // Show case count
-            const caseCount = @Model.Count();
-            if (caseCount > 0) {
-                const searchInfo = document.createElement('div');
-                searchInfo.className = 'text-muted mt-2';
-                searchInfo.innerHTML = `<i class="bi bi-info-circle"></i> Found ${caseCount} case(s)`;
-                document.querySelector('.card-header').appendChild(searchInfo);
-            }
-
-            // Tooltip for truncated text
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+            // Set today as max date for date inputs
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll('input[type="date"]').forEach(input => {
+                input.setAttribute('max', today);
             });
         });
+
+        function applyDatePreset(preset) {
+            const today = new Date();
+            let startDate = '';
+            let endDate = '';
+
+            switch(preset) {
+                case 'today':
+                    startDate = today.toISOString().split('T')[0];
+                    endDate = startDate;
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    startDate = yesterday.toISOString().split('T')[0];
+                    endDate = startDate;
+                    break;
+                case 'thisWeek':
+                    const startOfWeek = new Date(today);
+                    startOfWeek.setDate(today.getDate() - today.getDay());
+                    startDate = startOfWeek.toISOString().split('T')[0];
+                    endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'lastWeek':
+                    const startOfLastWeek = new Date(today);
+                    startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
+                    const endOfLastWeek = new Date(startOfLastWeek);
+                    endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+                    startDate = startOfLastWeek.toISOString().split('T')[0];
+                    endDate = endOfLastWeek.toISOString().split('T')[0];
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+                    endDate = today.toISOString().split('T')[0];
+                    break;
+                case 'lastMonth':
+                    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    startDate = firstDayLastMonth.toISOString().split('T')[0];
+                    endDate = lastDayLastMonth.toISOString().split('T')[0];
+                    break;
+            }
+
+            if (startDate && endDate) {
+                document.querySelector('input[name="startDate"]').value = startDate;
+                document.querySelector('input[name="endDate"]').value = endDate;
+                document.getElementById('filterForm').submit();
+            }
+        }
+
+        function clearFilters() {
+            // Clear all form inputs
+            document.getElementById('filterForm').reset();
+            // Submit the form to reload without filters
+            window.location.href = window.location.pathname;
+        }
+
+        // Real-time search debounce
+        let searchTimeout;
+        const searchInput = document.querySelector('input[name="searchTerm"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    document.getElementById('filterForm').submit();
+                }, 500);
+            });
+        }
     </script>
 
     <style>
@@ -153,5 +277,44 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        .filter-badge {
+            font-size: 0.8em;
+            margin-right: 0.5rem;
+        }
     </style>
+}
+
+@functions {
+    private bool HasActiveFilters()
+    {
+        return !string.IsNullOrEmpty(Context.Request.Query["searchTerm"].ToString()) ||
+               !string.IsNullOrEmpty(Context.Request.Query["startDate"].ToString()) ||
+               !string.IsNullOrEmpty(Context.Request.Query["endDate"].ToString());
+    }
+
+    private Microsoft.AspNetCore.Html.IHtmlContent RenderActiveFilters()
+    {
+        var filters = new List<string>();
+
+        var searchTerm = Context.Request.Query["searchTerm"].ToString();
+        var startDate = Context.Request.Query["startDate"].ToString();
+        var endDate = Context.Request.Query["endDate"].ToString();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            filters.Add($"Search: \"{searchTerm}\"");
+        }
+
+        if (!string.IsNullOrEmpty(startDate))
+        {
+            var endDateDisplay = !string.IsNullOrEmpty(endDate) ? endDate : "Present";
+            filters.Add($"Date: {startDate} to {endDateDisplay}");
+        }
+
+        var htmlContent = string.Join(" • ", filters.Select(f =>
+            $"<span class='badge filter-badge bg-primary'>{f}</span>"));
+
+        return new HtmlString(htmlContent);
+    }
 }
