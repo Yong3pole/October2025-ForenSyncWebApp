@@ -1,6 +1,6 @@
-﻿@{
-    Layout = "_Layout";
-    ViewData["Title"] = "Dashboard";
+﻿﻿@{
+Layout = "_Layout";
+ViewData["Title"] = "Dashboard";
 }
 
 <!-- Updated Welcome Modal -->
@@ -111,7 +111,7 @@
             </div>
         </div>
 
-        <!-- Statistics Cards Row -->
+        <!-- Statistics Cards Row with Quick Actions -->
         <div class="row g-3">
             <div class="col-md-3">
                 <div class="card text-center p-3">
@@ -129,75 +129,37 @@
             </div>
             <div class="col-md-3">
                 <div class="card text-center p-3">
-                    <i class="bi bi-upload text-info fs-1 mb-2"></i>
-                    <h6>Total Exports</h6>
-                    <p class="mb-0 display-6 text-info" id="totalExports">0</p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center p-3">
                     <i class="bi bi-exclamation-triangle text-warning fs-1 mb-2"></i>
                     <h6>Anomalies</h6>
                     <p class="mb-0 display-6 text-warning" id="totalAnomalies">0</p>
                 </div>
             </div>
-        </div>
-
-        <!-- Quick Actions & Recent Activity -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
                         <h6 class="mb-0">Quick Actions</h6>
                         <span class="badge bg-primary">Shortcuts</span>
                     </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <a href="@Url.Action("CaseViewer", "Case")" class="btn btn-outline-primary text-start py-3">
-                                <i class="bi bi-folder2-open me-2 fs-5"></i>
-                                <div>
-                                    <strong>Case Management</strong>
-                                    <br>
-                                    <small class="text-muted">View and manage forensic cases</small>
-                                </div>
-                            </a>
-                            <a href="@Url.Action("MemoryPane", "Tools")" class="btn btn-outline-success text-start py-3">
-                                <i class="bi bi-memory me-2 fs-5"></i>
-                                <div>
-                                    <strong>Memory Analysis</strong>
-                                    <br>
-                                    <small class="text-muted">Analyze memory dumps and captures</small>
-                                </div>
-                            </a>
-                            <a href="@Url.Action("AnomalyViewer", "Tools")" class="btn btn-outline-warning text-start py-3">
-                                <i class="bi bi-exclamation-triangle me-2 fs-5"></i>
-                                <div>
-                                    <strong>Anomaly Detection</strong>
-                                    <br>
-                                    <small class="text-muted">Review detected anomalies</small>
-                                </div>
-                            </a>
-                            <a href="@Url.Action("AcquisitionHistory", "Case")" class="btn btn-outline-info text-start py-3">
-                                <i class="bi bi-clock-history me-2 fs-5"></i>
-                                <div>
-                                    <strong>Acquisition History</strong>
-                                    <br>
-                                    <small class="text-muted">View acquisition timeline</small>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Recent Activity</h6>
-                        <span class="badge bg-secondary">Live</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="recentActivityList">
-                            <!-- Activity will be loaded here -->
+                    <div class="card-body p-2 d-flex align-items-center justify-content-center">
+                        <div class="w-100">
+                            <div class="d-grid gap-1">
+                                <a href="@Url.Action("CaseViewer", "Case")" class="btn btn-outline-primary btn-sm text-start py-2">
+                                    <i class="bi bi-folder2-open me-1"></i>
+                                    <small>Case Management</small>
+                                </a>
+                                <a href="@Url.Action("MemoryPane", "Tools")" class="btn btn-outline-success btn-sm text-start py-2">
+                                    <i class="bi bi-memory me-1"></i>
+                                    <small>Memory Analysis</small>
+                                </a>
+                                <a href="@Url.Action("AnomalyViewer", "Tools")" class="btn btn-outline-warning btn-sm text-start py-2">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    <small>Anomaly Detection</small>
+                                </a>
+                                <a href="@Url.Action("AcquisitionHistory", "Case")" class="btn btn-outline-info btn-sm text-start py-2">
+                                    <i class="bi bi-clock-history me-1"></i>
+                                    <small>Acquisition History</small>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -209,6 +171,7 @@
 @section Scripts {
     <script>
         let acquisitionPieChart, activityLineChart;
+        let currentDateRange = 6;
 
         function initializeSyncModal() {
             const modal = new bootstrap.Modal(document.getElementById('syncModal'));
@@ -223,10 +186,7 @@
                 modal.hide();
             });
         }
-                // Add this near the top with your other variables
-        let currentDateRange = 6;
 
-        // Update the loadDashboardData function to include date range
         async function loadDashboardData() {
             showLoading(true);
 
@@ -250,7 +210,6 @@
             }
         }
 
-        // Add this new function
         function updateDateRangeDisplay() {
             const displayElement = document.getElementById('dateRangeDisplay');
             const filterValue = document.getElementById('dateRangeFilter').value;
@@ -286,10 +245,9 @@
         });
 
         function updateDashboard(data) {
-            // Update statistics cards
+            // Update statistics cards with dynamic data
             document.getElementById('totalCases').textContent = data.totalCases || '0';
             document.getElementById('totalImports').textContent = data.totalImports || '0';
-            document.getElementById('totalExports').textContent = data.totalExports || '0';
             document.getElementById('totalAnomalies').textContent = data.totalAnomalies || '0';
 
             // Update last updated time
@@ -297,17 +255,13 @@
 
             // Update charts
             updateCharts(data.charts);
-
-            // Update recent activity
-            updateRecentActivity(data.recentActivity);
         }
 
-                function updateCharts(chartData) {
+        function updateCharts(chartData) {
             // Acquisition Pie Chart
             if (acquisitionPieChart) acquisitionPieChart.destroy();
             const pieCanvas = document.getElementById('acquisitionPieChart');
             if (pieCanvas) {
-                // Use dynamic data from the server, fallback to sample data
                 const pieLabels = chartData?.acquisitionTypes?.labels || ['Memory Capture', 'Drive image/Clone', 'Snapshots'];
                 const pieData = chartData?.acquisitionTypes?.data || [45, 30, 15];
 
@@ -352,7 +306,7 @@
                 });
             }
 
-            // Activity Line Chart (keep your existing code)
+            // Activity Line Chart
             if (activityLineChart) activityLineChart.destroy();
             const lineCanvas = document.getElementById('activityLineChart');
             if (lineCanvas) {
@@ -399,71 +353,17 @@
             }
         }
 
-        function updateRecentActivity(activities) {
-            const container = document.getElementById('recentActivityList');
-            if (!activities || activities.length === 0) {
-                // Use sample activities if none provided
-                container.innerHTML = `
-                    <div class="d-flex align-items-start py-2 border-bottom">
-                        <i class="bi bi-memory text-primary me-2 mt-1"></i>
-                        <div class="flex-grow-1">
-                            <small>Memory capture completed for Case-2024-001</small>
-                            <br>
-                            <small class="text-muted">2 hours ago</small>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-start py-2 border-bottom">
-                        <i class="bi bi-hdd text-success me-2 mt-1"></i>
-                        <div class="flex-grow-1">
-                            <small>Drive image imported for forensic analysis</small>
-                            <br>
-                            <small class="text-muted">5 hours ago</small>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-start py-2 border-bottom">
-                        <i class="bi bi-exclamation-triangle text-warning me-2 mt-1"></i>
-                        <div class="flex-grow-1">
-                            <small>3 anomalies detected in memory analysis</small>
-                            <br>
-                            <small class="text-muted">Yesterday</small>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-start py-2">
-                        <i class="bi bi-file-earmark-arrow-up text-info me-2 mt-1"></i>
-                        <div class="flex-grow-1">
-                            <small>Export report generated for Case-2024-015</small>
-                            <br>
-                            <small class="text-muted">2 days ago</small>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = activities.map(activity => `
-                <div class="d-flex align-items-start py-2 border-bottom">
-                    <i class="bi bi-${activity.icon} text-${activity.type} me-2 mt-1"></i>
-                    <div class="flex-grow-1">
-                        <small>${activity.description}</small>
-                        <br>
-                        <small class="text-muted">${activity.time}</small>
-                    </div>
-                </div>
-            `).join('');
-        }
-
         function useSampleData() {
             // Sample data for demo purposes
             const sampleData = {
                 success: true,
                 totalCases: 24,
                 totalImports: 156,
-                totalExports: 89,
                 totalAnomalies: 12,
                 charts: {
                     acquisitionTypes: {
                         labels: ['Memory Capture', 'Drive image/Clone', 'Snapshots'],
-                        data: [67, 42, 28] // Updated to match the 3 categories
+                        data: [67, 42, 28]
                     },
                     activityTimeline: {
                         labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
@@ -481,7 +381,7 @@
         }
 
         function showError(message) {
-            alert(message); // Simple alert for now
+            alert(message);
         }
     </script>
 

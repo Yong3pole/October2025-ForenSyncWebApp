@@ -32,21 +32,23 @@ namespace ForenSync_WebApp_New.Controllers
             {
                 // Query for acquisition types from acquisition_log table using Entity Framework
                 var acquisitionTypes = new Dictionary<string, int>
-                {
-                    { "Drive image/Clone", 0 },
-                    { "Memory Capture", 0 },
-                    { "Snapshots", 0 }
-                };
+        {
+            { "Drive image/Clone", 0 },
+            { "Memory Capture", 0 },
+            { "Snapshots", 0 }
+        };
 
                 // Apply date filter for acquisitions
                 var acquisitionQuery = _context.acquisition_log.AsQueryable();
                 var caseQuery = _context.case_logs.AsQueryable();
+                var importQuery = _context.import_to_main_logs.AsQueryable();
 
                 if (months > 0)
                 {
                     var dateFilter = DateTime.Now.AddMonths(-months);
                     acquisitionQuery = acquisitionQuery.Where(a => EF.Property<DateTime>(a, "created_at") >= dateFilter);
                     caseQuery = caseQuery.Where(c => EF.Property<DateTime>(c, "date") >= dateFilter);
+                    importQuery = importQuery.Where(i => EF.Property<DateTime>(i, "import_timestamp") >= dateFilter);
                 }
 
                 // Group by type and count using LINQ
@@ -85,7 +87,7 @@ namespace ForenSync_WebApp_New.Controllers
                     .Distinct()
                     .CountAsync();
 
-                var totalImports = await acquisitionQuery.CountAsync();
+                var totalImports = await importQuery.CountAsync(); // Count from import_to_main_logs table
                 var totalExports = 0; // Adjust if you have export data
                 var totalAnomalies = 0; // Adjust if you have anomalies data
 
