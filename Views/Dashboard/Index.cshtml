@@ -249,22 +249,25 @@
             updateRecentActivity(data.recentActivity);
         }
 
-        function updateCharts(chartData) {
+                function updateCharts(chartData) {
             // Acquisition Pie Chart
             if (acquisitionPieChart) acquisitionPieChart.destroy();
             const pieCanvas = document.getElementById('acquisitionPieChart');
             if (pieCanvas) {
+                // Use dynamic data from the server, fallback to sample data
+                const pieLabels = chartData?.acquisitionTypes?.labels || ['Memory Capture', 'Drive image/Clone', 'Snapshots'];
+                const pieData = chartData?.acquisitionTypes?.data || [45, 30, 15];
+
                 acquisitionPieChart = new Chart(pieCanvas, {
                     type: 'pie',
                     data: {
-                        labels: chartData?.acquisitionTypes?.labels || ['Memory Capture', 'Drive Image', 'File Clone', 'Network Capture'],
+                        labels: pieLabels,
                         datasets: [{
-                            data: chartData?.acquisitionTypes?.data || [45, 30, 15, 10],
+                            data: pieData,
                             backgroundColor: [
-                                '#3b82f6', // Blue for Memory
-                                '#10b981', // Green for Drive
-                                '#f59e0b', // Yellow for File
-                                '#8b5cf6'  // Purple for Network
+                                '#3b82f6', // Blue for Memory Capture
+                                '#10b981', // Green for Drive image/Clone
+                                '#f59e0b', // Yellow for Snapshots
                             ],
                             borderWidth: 2,
                             borderColor: '#fff'
@@ -286,7 +289,7 @@
                                         const label = context.label || '';
                                         const value = context.raw || 0;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = Math.round((value / total) * 100);
+                                        const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
                                         return `${label}: ${value} (${percentage}%)`;
                                     }
                                 }
@@ -296,7 +299,7 @@
                 });
             }
 
-            // Activity Line Chart
+            // Activity Line Chart (keep your existing code)
             if (activityLineChart) activityLineChart.destroy();
             const lineCanvas = document.getElementById('activityLineChart');
             if (lineCanvas) {
@@ -406,8 +409,8 @@
                 totalAnomalies: 12,
                 charts: {
                     acquisitionTypes: {
-                        labels: ['Memory Capture', 'Drive Image', 'File Clone', 'Network Capture'],
-                        data: [67, 42, 28, 15]
+                        labels: ['Memory Capture', 'Drive image/Clone', 'Snapshots'],
+                        data: [67, 42, 28] // Updated to match the 3 categories
                     },
                     activityTimeline: {
                         labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
