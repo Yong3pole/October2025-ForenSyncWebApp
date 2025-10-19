@@ -111,16 +111,16 @@
                                 <tr>
                                     <td>
                                         <span class="badge
-                                               @(log.Type?.ToLower() == "memory capture" ? "bg-danger" :
-                                                 log.Type?.ToLower() == "drive" ? "bg-success" :
-                                                 log.Type?.ToLower() == "snapshot" ? "bg-warning" : "bg-secondary")">
-                                                @log.Type
-                                         </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-primary">@log.CaseId</span>
-                                    </td>
-                                    
+                               @(log.Type?.ToLower() == "memory capture" ? "bg-danger" :
+                                                                       log.Type?.ToLower() == "drive" ? "bg-success" :
+                                                                       log.Type?.ToLower() == "snapshot" ? "bg-warning" : "bg-secondary")">
+                                    @log.Type
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">@log.CaseId</span>
+                            </td>
+
                                     <td>@log.Tool</td>
                                     <td>
                                         <span class="badge bg-light text-dark">
@@ -129,16 +129,32 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" title="View Details" onclick="showAcquisitionDetails('@log.AcquisitionId')">
+                                            <!-- Only show file opening button for snapshot type -->
+                                    @if (log.Type?.ToLower() == "snapshot" && !string.IsNullOrEmpty(log.OutputPath))
+                                            {
+                                                var cleanPath = log.OutputPath.StartsWith("Case/") ? log.OutputPath.Substring(5) : log.OutputPath;
+                                                <button class="btn btn-outline-primary open-acquisition-file-btn"
+                                                        data-file-path="/@cleanPath"
+                                                        data-acquisition-id="@log.AcquisitionId"
+                                                        title="Open Output File">
+                                                    <i class="bi bi-file-text"></i>
+                                                </button>
+                                            }
+                                            else if (log.Type?.ToLower() == "snapshot" && string.IsNullOrEmpty(log.OutputPath))
+                                            {
+                                                <button class="btn btn-outline-secondary" title="No output file available" disabled>
+                                                    <i class="bi bi-file-x"></i>
+                                                </button>
+                                            }
+
+                                            <!-- View Details Button - Always show this -->
+                                            <button class="btn btn-outline-info" title="View Details" onclick="showAcquisitionDetails('@log.AcquisitionId')">
                                                 <i class="bi bi-eye"></i>
-                                            </button>
-                                            <button class="btn btn-outline-success" title="Verify Hash" onclick="verifyHash('@log.AcquisitionId')">
-                                                <i class="bi bi-shield-check"></i>
                                             </button>
                                         </div>
                                     </td>
-                        </tr>
-                                                }
+                                </tr>
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -208,7 +224,78 @@
             const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
+
+            // Add click handler for acquisition file buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('open-acquisition-file-btn') ||
+                    e.target.closest('.open-acquisition-file-btn')) {
+
+                    const button = e.target.classList.contains('open-acquisition-file-btn')
+                        ? e.target
+                        : e.target.closest('.open-acquisition-file-btn');
+
+                    const filePath = button.getAttribute('data-file-path');
+                    const acquisitionId = button.getAttribute('data-acquisition-id');
+                    openAcquisitionFile(filePath, acquisitionId, button);
+                }
+            });
         });
+
+        // Function to open acquisition file
+        function openAcquisitionFile(filePath, acquisitionId, button) {
+            const originalHTML = button.innerHTML;
+
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            // Check if file exists
+            fetch(filePath)
+                .then(response => {
+                    if (response.ok) {
+                        // File exists - open it in new tab
+                        window.open(filePath, '_blank');
+                    } else {
+                        // File doesn't exist - show error message
+                        showFileError(acquisitionId, filePath);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking file:', error);
+                    showFileError(acquisitionId, filePath);
+                })
+                .finally(() => {
+                    // Reset button
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="bi bi-file-text"></i>';
+                    }, 1000);
+                });
+        }
+
+        // Show error message when file not found
+        function showFileError(acquisitionId, filePath) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-warning alert-dismissible fade show mt-3';
+            alert.innerHTML = `
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Output file not found for acquisition: ${acquisitionId}</strong><br>
+                File path: ${filePath}<br>
+                The output file may not have been IMPORTED, please import the Case folder.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // Insert at the top of the page
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alert, container.firstChild);
+
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 8000);
+        }
 
         function clearFilters() {
             document.getElementById('filterForm').reset();
@@ -228,7 +315,6 @@
         }
 
         function showAcquisitionDetails(acquisitionId) {
-            // For now, show a simple message. You can fetch real data from your API later.
             const detailsHtml = `
                 <div class="text-center">
                     <h6>Acquisition Details</h6>
@@ -238,11 +324,6 @@
             `;
             document.getElementById('acquisitionDetailsContent').innerHTML = detailsHtml;
             new bootstrap.Modal(document.getElementById('acquisitionDetailsModal')).show();
-        }
-
-        function verifyHash(acquisitionId) {
-            alert(`Hash verification would be performed for acquisition: ${acquisitionId}`);
-            // You can implement actual hash verification logic here
         }
     </script>
 
@@ -282,7 +363,6 @@
         }
     </style>
 }
-
 @functions {
     private bool HasActiveFilters()
     {

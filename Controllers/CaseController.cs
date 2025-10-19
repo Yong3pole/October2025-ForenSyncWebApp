@@ -2,6 +2,7 @@
 using ForenSync_WebApp_New.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 
 namespace ForenSync_WebApp_New.Controllers
 {
@@ -96,7 +97,8 @@ namespace ForenSync_WebApp_New.Controllers
                     CaseId = a.case_id ?? "N/A",
                     Type = a.type ?? "Not set",
                     Tool = a.tool ?? "Not set",
-                    CreatedAt = a.created_at.ToString("yyyy-MM-dd HH:mm") // Simplified format
+                    CreatedAt = a.created_at.ToString("yyyy-MM-dd HH:mm"), // Simplified format
+                    OutputPath = a.output_path // ADD THIS LINE
                 }).ToList();
 
             return View(viewModels);

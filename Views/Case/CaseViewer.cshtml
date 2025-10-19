@@ -130,8 +130,10 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary" title="View Case">
-                                            <i class="bi bi-eye"></i> View
+                                        <button class="btn btn-sm btn-outline-primary view-summary-btn"
+                                                data-case-id="@log.case_id"
+                                                title="Open Summary File">
+                                            <i class="bi bi-file-text"></i> View Summary
                                         </button>
                                     </td>
                                 </tr>
@@ -181,7 +183,78 @@
             document.querySelectorAll('input[type="date"]').forEach(input => {
                 input.setAttribute('max', today);
             });
+
+            // Add click handler for summary buttons - MOVED HERE
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('view-summary-btn') ||
+                    e.target.closest('.view-summary-btn')) {
+
+                    const button = e.target.classList.contains('view-summary-btn')
+                        ? e.target
+                        : e.target.closest('.view-summary-btn');
+
+                    const caseId = button.getAttribute('data-case-id');
+                    openSummaryFile(caseId, button);
+                }
+            });
         });
+
+        // Function to check if summary file exists and open it
+        function openSummaryFile(caseId, button) {
+            const originalHTML = button.innerHTML;
+
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Checking...';
+
+            const filePath = `/Cases/${caseId}/summary.txt`;
+
+            // Check if file exists
+            fetch(filePath)
+                .then(response => {
+                    if (response.ok) {
+                        // File exists - open it in new tab
+                        window.open(filePath, '_blank');
+                    } else {
+                        // File doesn't exist - show error message
+                        showFileError(caseId);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking file:', error);
+                    showFileError(caseId);
+                })
+                .finally(() => {
+                    // Reset button
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="bi bi-file-text"></i> View Summary';
+                    }, 1000);
+                });
+        }
+
+        // Show error message when file not found
+        function showFileError(caseId) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-warning alert-dismissible fade show mt-3';
+            alert.innerHTML = `
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Summary file not found for case: ${caseId}</strong><br>
+                Please import the case folder to the base directory to generate the summary file.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // Insert at the top of the page
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alert, container.firstChild);
+
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 8000);
+        }
 
         function applyDatePreset(preset) {
             const today = new Date();

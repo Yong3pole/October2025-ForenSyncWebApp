@@ -34,6 +34,7 @@ namespace YourProjectName.Controllers
             _httpClient = httpClient;
         }
 
+
         [HttpPost]
         public async Task<IActionResult> AnalyzeMFT(IFormFile csvFile)
         {
@@ -107,16 +108,16 @@ namespace YourProjectName.Controllers
             {
                 // Create summary for Mistral
                 var summary = $@"
-MFT Forensic Findings:
-- Score: {analysisResult.Score}/100
-- Alert Level: {analysisResult.AlertLevel}
-- Total Files: {analysisResult.Metrics.TotalFiles}
-- Timestamp Anomalies: {analysisResult.Metrics.LargeTimestampDiscrepancies}
-- Rapid Deletions: {analysisResult.Metrics.RapidDeletions}
-- Top Suspicious: {string.Join(", ", analysisResult.TopSuspiciousFiles)}
+                    MFT Forensic Findings:
+                    - Score: {analysisResult.Score}/100
+                    - Alert Level: {analysisResult.AlertLevel}
+                    - Total Files: {analysisResult.Metrics.TotalFiles}
+                    - Timestamp Anomalies: {analysisResult.Metrics.LargeTimestampDiscrepancies}
+                    - Rapid Deletions: {analysisResult.Metrics.RapidDeletions}
+                    - Top Suspicious: {string.Join(", ", analysisResult.TopSuspiciousFiles)}
 
-As a cybercrime investigator, what does this pattern suggest and what should we investigate next?
-";
+                    As a cybercrime investigator, what does this pattern suggest and what should we investigate next?
+                    ";
 
                 var requestData = new
                 {
