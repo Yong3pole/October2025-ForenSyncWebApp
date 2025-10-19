@@ -83,14 +83,75 @@ namespace ForenSync_WebApp_New.Controllers
             return View();
         }
 
-        public IActionResult ImportHistory()
+        public async Task<IActionResult> ImportHistory(string searchTerm, string status, string startDate, string endDate)
         {
             var userRole = HttpContext.Session.GetString("Role");
             if (string.IsNullOrEmpty(userRole) || userRole.ToLower() != "admin")
             {
                 return RedirectToAction("AccessDenied", "Home");
             }
-            return View();
+
+            try
+            {
+                var query = _context.import_to_main_logs.AsQueryable();
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    query = query.Where(i =>
+                        i.import_id.Contains(searchTerm) ||
+                        i.status.Contains(searchTerm) ||
+                        (i.error_message != null && i.error_message.Contains(searchTerm)) ||
+                        (i.imported_case_ids != null && i.imported_case_ids.Contains(searchTerm))
+                    );
+                }
+
+                // Apply status filter - using exact 'SUCCESS' and 'FAILED' values
+                if (!string.IsNullOrEmpty(status))
+                {
+                    query = query.Where(i => i.status.ToUpper() == status.ToUpper());
+                }
+
+                // Apply date filter
+                if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var start))
+                {
+                    query = query.Where(i => DateTime.Parse(i.import_timestamp) >= start);
+                }
+
+                if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var end))
+                {
+                    query = query.Where(i => DateTime.Parse(i.import_timestamp) <= end.AddDays(1)); // Include the entire end date
+                }
+
+                var importLogs = await query
+                    .OrderByDescending(i => i.import_timestamp)
+                    .ToListAsync();
+
+                return View(importLogs);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading import history: {ex.Message}");
+                return View(new List<import_to_main_logs>());
+            }
+        }
+
+        // AJAX method for dynamic loading
+        [HttpGet]
+        public async Task<IActionResult> GetImportHistory()
+        {
+            try
+            {
+                var importLogs = await _context.import_to_main_logs
+                    .OrderByDescending(i => i.import_timestamp)
+                    .ToListAsync();
+
+                return Json(new { success = true, data = importLogs });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, error = ex.Message });
+            }
         }
 
         ////////////////////////////////////////// ADD USER //////////////////////////////////////////
