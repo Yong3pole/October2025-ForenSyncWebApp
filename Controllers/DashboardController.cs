@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using ForenSync_WebApp_New.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ForenSync_WebApp_New.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace ForenSync_WebApp_New.Controllers
@@ -26,21 +26,32 @@ namespace ForenSync_WebApp_New.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetDashboardData()
+        public async Task<IActionResult> GetDashboardData(int months = 6)
         {
             try
             {
                 // Query for acquisition types from acquisition_log table using Entity Framework
                 var acquisitionTypes = new Dictionary<string, int>
-        {
-            { "Drive image/Clone", 0 },
-            { "Memory Capture", 0 },
-            { "Snapshots", 0 }
-        };
+                {
+                    { "Drive image/Clone", 0 },
+                    { "Memory Capture", 0 },
+                    { "Snapshots", 0 }
+                };
+
+                // Apply date filter for acquisitions
+                var acquisitionQuery = _context.acquisition_log.AsQueryable();
+                var caseQuery = _context.case_logs.AsQueryable();
+
+                if (months > 0)
+                {
+                    var dateFilter = DateTime.Now.AddMonths(-months);
+                    acquisitionQuery = acquisitionQuery.Where(a => EF.Property<DateTime>(a, "created_at") >= dateFilter);
+                    caseQuery = caseQuery.Where(c => EF.Property<DateTime>(c, "date") >= dateFilter);
+                }
 
                 // Group by type and count using LINQ
-                var typeCounts = await _context.acquisition_log
-                    .GroupBy(a => a.type)
+                var typeCounts = await acquisitionQuery
+                    .GroupBy(a => EF.Property<string>(a, "type"))
                     .Select(g => new { Type = g.Key, Count = g.Count() })
                     .ToListAsync();
 
@@ -69,66 +80,118 @@ namespace ForenSync_WebApp_New.Controllers
                 }
 
                 // Get other dashboard statistics using Entity Framework
-                var totalCases = await _context.acquisition_log
-                    .Select(a => a.case_id)
+                var totalCases = await acquisitionQuery
+                    .Select(a => EF.Property<string>(a, "case_id"))
                     .Distinct()
                     .CountAsync();
 
-                var totalImports = await _context.acquisition_log.CountAsync();
+                var totalImports = await acquisitionQuery.CountAsync();
                 var totalExports = 0; // Adjust if you have export data
                 var totalAnomalies = 0; // Adjust if you have anomalies data
 
-                // Get timeline data for the last 6 months
-                var sixMonthsAgo = DateTime.Now.AddMonths(-6);
+                // Get timeline data based on selected months
+                DateTime startDate;
+                string periodFormat;
+                List<string> monthLabels;
+                List<int> casesData;
+                List<int> acquisitionsData;
 
-                // Get cases by month from case_logs table
-                var casesByMonth = await _context.case_logs
-                    .Where(c => c.date >= sixMonthsAgo)
-                    .GroupBy(c => new { Year = c.date.Year, Month = c.date.Month })
-                    .Select(g => new
-                    {
-                        Year = g.Key.Year,
-                        Month = g.Key.Month,
-                        Count = g.Count()
-                    })
-                    .OrderBy(x => x.Year)
-                    .ThenBy(x => x.Month)
-                    .ToListAsync();
-
-                // Get acquisitions by month from acquisition_log table
-                var acquisitionsByMonth = await _context.acquisition_log
-                    .Where(a => a.created_at >= sixMonthsAgo)
-                    .GroupBy(a => new { Year = a.created_at.Year, Month = a.created_at.Month })
-                    .Select(g => new
-                    {
-                        Year = g.Key.Year,
-                        Month = g.Key.Month,
-                        Count = g.Count()
-                    })
-                    .OrderBy(x => x.Year)
-                    .ThenBy(x => x.Month)
-                    .ToListAsync();
-
-                // Generate labels for the last 6 months
-                var monthLabels = new List<string>();
-                var casesData = new List<int>();
-                var acquisitionsData = new List<int>();
-
-                for (int i = 5; i >= 0; i--)
+                if (months == 1) // Last 30 days - show daily data
                 {
-                    var date = DateTime.Now.AddMonths(-i);
-                    var monthName = date.ToString("MMM");
-                    monthLabels.Add(monthName);
+                    startDate = DateTime.Now.AddDays(-30);
+                    periodFormat = "MMM dd";
 
-                    // Find cases count for this month
-                    var casesCount = casesByMonth
-                        .FirstOrDefault(c => c.Year == date.Year && c.Month == date.Month)?.Count ?? 0;
-                    casesData.Add(casesCount);
+                    // Get cases by day
+                    var casesByDay = await caseQuery
+                        .Where(c => EF.Property<DateTime>(c, "date") >= startDate)
+                        .GroupBy(c => EF.Property<DateTime>(c, "date").Date)
+                        .Select(g => new { Date = g.Key, Count = g.Count() })
+                        .OrderBy(x => x.Date)
+                        .ToListAsync();
 
-                    // Find acquisitions count for this month
-                    var acquisitionsCount = acquisitionsByMonth
-                        .FirstOrDefault(a => a.Year == date.Year && a.Month == date.Month)?.Count ?? 0;
-                    acquisitionsData.Add(acquisitionsCount);
+                    // Get acquisitions by day
+                    var acquisitionsByDay = await acquisitionQuery
+                        .Where(a => EF.Property<DateTime>(a, "created_at") >= startDate)
+                        .GroupBy(a => EF.Property<DateTime>(a, "created_at").Date)
+                        .Select(g => new { Date = g.Key, Count = g.Count() })
+                        .OrderBy(x => x.Date)
+                        .ToListAsync();
+
+                    // Generate labels and data for the last 30 days
+                    monthLabels = new List<string>();
+                    casesData = new List<int>();
+                    acquisitionsData = new List<int>();
+
+                    for (int i = 29; i >= 0; i--)
+                    {
+                        var date = DateTime.Now.AddDays(-i).Date;
+                        monthLabels.Add(date.ToString(periodFormat));
+
+                        var casesCount = casesByDay.FirstOrDefault(c => c.Date == date)?.Count ?? 0;
+                        casesData.Add(casesCount);
+
+                        var acquisitionsCount = acquisitionsByDay.FirstOrDefault(a => a.Date == date)?.Count ?? 0;
+                        acquisitionsData.Add(acquisitionsCount);
+                    }
+                }
+                else // Monthly data
+                {
+                    int displayMonths = months > 0 ? months : 12; // Default to 12 months if "All Time"
+                    startDate = DateTime.Now.AddMonths(-displayMonths);
+                    periodFormat = "MMM yyyy";
+
+                    // Get cases by month
+                    var casesByMonth = await caseQuery
+                        .Where(c => EF.Property<DateTime>(c, "date") >= startDate)
+                        .GroupBy(c => new {
+                            Year = EF.Property<DateTime>(c, "date").Year,
+                            Month = EF.Property<DateTime>(c, "date").Month
+                        })
+                        .Select(g => new
+                        {
+                            Year = g.Key.Year,
+                            Month = g.Key.Month,
+                            Count = g.Count()
+                        })
+                        .OrderBy(x => x.Year)
+                        .ThenBy(x => x.Month)
+                        .ToListAsync();
+
+                    // Get acquisitions by month
+                    var acquisitionsByMonth = await acquisitionQuery
+                        .Where(a => EF.Property<DateTime>(a, "created_at") >= startDate)
+                        .GroupBy(a => new {
+                            Year = EF.Property<DateTime>(a, "created_at").Year,
+                            Month = EF.Property<DateTime>(a, "created_at").Month
+                        })
+                        .Select(g => new
+                        {
+                            Year = g.Key.Year,
+                            Month = g.Key.Month,
+                            Count = g.Count()
+                        })
+                        .OrderBy(x => x.Year)
+                        .ThenBy(x => x.Month)
+                        .ToListAsync();
+
+                    // Generate labels and data
+                    monthLabels = new List<string>();
+                    casesData = new List<int>();
+                    acquisitionsData = new List<int>();
+
+                    for (int i = displayMonths - 1; i >= 0; i--)
+                    {
+                        var date = DateTime.Now.AddMonths(-i);
+                        monthLabels.Add(date.ToString(periodFormat));
+
+                        var casesCount = casesByMonth
+                            .FirstOrDefault(c => c.Year == date.Year && c.Month == date.Month)?.Count ?? 0;
+                        casesData.Add(casesCount);
+
+                        var acquisitionsCount = acquisitionsByMonth
+                            .FirstOrDefault(a => a.Year == date.Year && a.Month == date.Month)?.Count ?? 0;
+                        acquisitionsData.Add(acquisitionsCount);
+                    }
                 }
 
                 var chartData = new
@@ -142,7 +205,8 @@ namespace ForenSync_WebApp_New.Controllers
                     {
                         labels = monthLabels.ToArray(),
                         cases = casesData.ToArray(),
-                        acquisitions = acquisitionsData.ToArray()
+                        acquisitions = acquisitionsData.ToArray(),
+                        period = months == 1 ? "daily" : "monthly"
                     }
                 };
 
@@ -154,7 +218,8 @@ namespace ForenSync_WebApp_New.Controllers
                     totalExports,
                     totalAnomalies,
                     charts = chartData,
-                    recentActivity = new object[] { }
+                    recentActivity = new object[] { },
+                    dateRange = months
                 });
             }
             catch (Exception ex)

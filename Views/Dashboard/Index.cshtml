@@ -54,6 +54,33 @@
         </div>
     </div>
 
+    <!-- Date Range Filter -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body py-2">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <label class="form-label mb-0"><strong>Date Range:</strong></label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select form-select-sm" id="dateRangeFilter">
+                                <option value="6">Last 6 Months</option>
+                                <option value="3">Last 3 Months</option>
+                                <option value="12">Last 12 Months</option>
+                                <option value="1">Last 30 Days</option>
+                                <option value="0">All Time</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <span class="text-muted small" id="dateRangeDisplay">Showing last 6 months</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading State -->
     <div id="loadingIndicator" class="text-center py-5">
         <div class="spinner-border text-primary" role="status">
@@ -183,20 +210,6 @@
     <script>
         let acquisitionPieChart, activityLineChart;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize modal if needed
-            const showModal = @(ViewBag.ShowSyncModal?.ToString().ToLower() ?? "false");
-            if (showModal === true) {
-                initializeSyncModal();
-            }
-
-            // Load dashboard data
-            loadDashboardData();
-
-            // Refresh button
-            document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
-        });
-
         function initializeSyncModal() {
             const modal = new bootstrap.Modal(document.getElementById('syncModal'));
             modal.show();
@@ -210,27 +223,67 @@
                 modal.hide();
             });
         }
+                // Add this near the top with your other variables
+        let currentDateRange = 6;
 
+        // Update the loadDashboardData function to include date range
         async function loadDashboardData() {
             showLoading(true);
 
             try {
-                const response = await fetch('@Url.Action("GetDashboardData", "Dashboard")');
+                const dateRange = document.getElementById('dateRangeFilter').value;
+                const response = await fetch(`@Url.Action("GetDashboardData", "Dashboard")?months=${dateRange}`);
                 const data = await response.json();
 
                 if (data.success) {
                     updateDashboard(data);
+                    currentDateRange = data.dateRange || 6;
+                    updateDateRangeDisplay();
                 } else {
                     showError('Failed to load dashboard data');
                 }
             } catch (error) {
                 console.error('Error loading dashboard:', error);
-                // For demo purposes, use sample data if API fails
                 useSampleData();
             } finally {
                 showLoading(false);
             }
         }
+
+        // Add this new function
+        function updateDateRangeDisplay() {
+            const displayElement = document.getElementById('dateRangeDisplay');
+            const filterValue = document.getElementById('dateRangeFilter').value;
+
+            const rangeTexts = {
+                '6': 'Showing last 6 months',
+                '3': 'Showing last 3 months',
+                '12': 'Showing last 12 months',
+                '1': 'Showing last 30 days',
+                '0': 'Showing all time data'
+            };
+
+            displayElement.textContent = rangeTexts[filterValue] || 'Showing data';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize modal if needed
+            const showModal = @(ViewBag.ShowSyncModal?.ToString().ToLower() ?? "false");
+            if (showModal === true) {
+                initializeSyncModal();
+            }
+
+            // Load dashboard data
+            loadDashboardData();
+
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
+
+            // Add date range filter change listener
+            document.getElementById('dateRangeFilter').addEventListener('change', function() {
+                loadDashboardData();
+            });
+        });
 
         function updateDashboard(data) {
             // Update statistics cards
