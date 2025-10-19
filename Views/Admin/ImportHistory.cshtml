@@ -123,7 +123,14 @@
                                         @if (!string.IsNullOrEmpty(log.import_timestamp))
                                         {
                                             <span class="badge bg-secondary">
-                                                @DateTime.Parse(log.import_timestamp).ToString("MM/dd/yyyy HH:mm")
+                                                @if (log.import_timestamp.Length >= 10)
+                                                {
+                                                    @log.import_timestamp.Substring(0, 10)
+                                                }
+                                                else
+                                                {
+                                                    @log.import_timestamp
+                                                }
                                             </span>
                                         }
                                         else

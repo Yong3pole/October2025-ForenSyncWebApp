@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Globalization;
 
 namespace ForenSync_WebApp_New.Controllers
 {
@@ -106,21 +107,23 @@ namespace ForenSync_WebApp_New.Controllers
                     );
                 }
 
-                // Apply status filter - using exact 'SUCCESS' and 'FAILED' values
+                // Apply status filter
                 if (!string.IsNullOrEmpty(status))
                 {
                     query = query.Where(i => i.status.ToUpper() == status.ToUpper());
                 }
 
-                // Apply date filter
-                if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var start))
+                // Apply date filter - ULTRA SIMPLE STRING COMPARISON
+                if (!string.IsNullOrEmpty(startDate))
                 {
-                    query = query.Where(i => DateTime.Parse(i.import_timestamp) >= start);
+                    query = query.Where(i => !string.IsNullOrEmpty(i.import_timestamp) &&
+                                            i.import_timestamp.Substring(0, 10).CompareTo(startDate) >= 0);
                 }
 
-                if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var end))
+                if (!string.IsNullOrEmpty(endDate))
                 {
-                    query = query.Where(i => DateTime.Parse(i.import_timestamp) <= end.AddDays(1)); // Include the entire end date
+                    query = query.Where(i => !string.IsNullOrEmpty(i.import_timestamp) &&
+                                            i.import_timestamp.Substring(0, 10).CompareTo(endDate) <= 0);
                 }
 
                 var importLogs = await query
@@ -132,25 +135,8 @@ namespace ForenSync_WebApp_New.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading import history: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return View(new List<import_to_main_logs>());
-            }
-        }
-
-        // AJAX method for dynamic loading
-        [HttpGet]
-        public async Task<IActionResult> GetImportHistory()
-        {
-            try
-            {
-                var importLogs = await _context.import_to_main_logs
-                    .OrderByDescending(i => i.import_timestamp)
-                    .ToListAsync();
-
-                return Json(new { success = true, data = importLogs });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, error = ex.Message });
             }
         }
 

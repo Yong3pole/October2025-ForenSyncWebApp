@@ -15,7 +15,7 @@ namespace ForenSync_WebApp_New.Controllers
             _context = context;
         }
 
-        public IActionResult CaseViewer(string searchTerm, DateTime? startDate, DateTime? endDate)
+        public IActionResult CaseViewer(string searchTerm, string startDate, string endDate)
         {
             var query = _context.case_logs.AsQueryable();
 
@@ -29,14 +29,23 @@ namespace ForenSync_WebApp_New.Controllers
                     c.case_path.Contains(searchTerm));
             }
 
-            // Date range filter
-            if (startDate.HasValue)
+            // ✅ DATE RANGE FILTER - USING OUR SUCCESSFUL PATTERN
+            if (!string.IsNullOrEmpty(startDate))
             {
-                query = query.Where(c => c.date >= startDate.Value);
+                if (DateTime.TryParse(startDate, out DateTime startDateParsed))
+                {
+                    query = query.Where(c => c.date >= startDateParsed);
+                }
             }
-            if (endDate.HasValue)
+
+            if (!string.IsNullOrEmpty(endDate))
             {
-                query = query.Where(c => c.date <= endDate.Value);
+                if (DateTime.TryParse(endDate, out DateTime endDateParsed))
+                {
+                    // Add one day to include the entire end date
+                    var endDateInclusive = endDateParsed.AddDays(1);
+                    query = query.Where(c => c.date < endDateInclusive);
+                }
             }
 
             var cases = query.OrderByDescending(c => c.date).ToList();
